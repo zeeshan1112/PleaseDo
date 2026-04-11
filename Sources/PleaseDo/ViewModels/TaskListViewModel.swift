@@ -56,6 +56,28 @@ public class TaskListViewModel: ObservableObject {
         return true
     }
     
+    public func renameCategory(oldName: String, newName: String) -> Bool {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, trimmedName != oldName, !categories.contains(trimmedName) else { return false }
+        
+        if let index = categories.firstIndex(of: oldName) {
+            categories[index] = trimmedName
+        }
+        
+        for i in 0..<tasks.count {
+            if tasks[i].category == oldName {
+                tasks[i].category = trimmedName
+            }
+        }
+        
+        if selectedCategory == oldName {
+            selectedCategory = trimmedName
+        }
+        
+        saveData()
+        return true
+    }
+    
     public func deleteCategory(_ name: String) {
         // Prevent deleting if it's the last category
         guard categories.count > 1 else { return }
