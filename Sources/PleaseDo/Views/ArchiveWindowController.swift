@@ -31,7 +31,7 @@ class ArchiveWindowController {
             viewModel.loadArchive()
         }
         
-        let targetWidth: CGFloat = 560
+        let targetWidth: CGFloat = 500
         let targetHeight: CGFloat = 700
         
         // Setup or update the panel

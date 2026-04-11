@@ -86,53 +86,24 @@ public struct ArchiveView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Compressed Header
-            VStack(spacing: 10) {
-                // Row 1: Title and Clear Action
+            // Refined Header
+            VStack(spacing: 14) {
+                // Row 1: Title and Status (Compact)
                 HStack(alignment: .lastTextBaseline) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Task Archive")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                        
-                        Text("\(allFilteredTasks.count) tasks")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
+                    Text("Archive")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                    
+                    Text("\(allFilteredTasks.count) tasks total")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
                     
                     Spacer()
-                    
-                    if !viewModel.archivedTasks.isEmpty {
-                        Button(action: {
-                            showingDeleteAllConfirmation = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "trash")
-                                Text("Clear Archive")
-                            }
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.red.opacity(0.8))
-                        }
-                        .buttonStyle(.plain)
-                        .confirmationDialog(
-                            "Delete All Archived Tasks?",
-                            isPresented: $showingDeleteAllConfirmation,
-                            titleVisibility: .visible
-                        ) {
-                            Button("Delete All Tasks", role: .destructive) {
-                                withAnimation {
-                                    viewModel.deleteAllArchivedTasks()
-                                }
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            Text("This action cannot be undone.")
-                        }
-                    }
                 }
                 
-                // Row 2: Search and Filters (Unified Toolbar)
-                HStack(spacing: 8) {
-                    // Search Field
+                // Row 2: Unified Toolbar
+                HStack(spacing: 10) {
+                    // Search Field (Expanded)
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
@@ -216,11 +187,41 @@ public struct ArchiveView: View {
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
+                    
+                    // Discrete Clear Archive Button
+                    if !viewModel.archivedTasks.isEmpty {
+                        Button(action: {
+                            showingDeleteAllConfirmation = true
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.red.opacity(0.7))
+                                .padding(5)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear Archive")
+                        .confirmationDialog(
+                            "Delete All Archived Tasks?",
+                            isPresented: $showingDeleteAllConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete All Tasks", role: .destructive) {
+                                withAnimation {
+                                    viewModel.deleteAllArchivedTasks()
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This action cannot be undone.")
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 10)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
             .background(Color(NSColor.windowBackgroundColor))
             
             Divider()
