@@ -18,11 +18,11 @@ Most task managers are too heavy, requiring multiple clicks just to see what's n
 - 🔢 **Glanceable Status**: Your pending task count is always visible in the menu tray.
 - 🔒 **Absolute Privacy**: No cloud, no tracking, no account required. Your data is stored locally in standard JSON format.
 
-## ⚙️ Building from Source
+## ⚙️ Building & Running
 
 PleaseDo is built with Swift and requires macOS 13.0 or later.
 
-### Quick Start
+### Command Line
 
 1. **Clone the repository:**
    ```bash
@@ -30,23 +30,34 @@ PleaseDo is built with Swift and requires macOS 13.0 or later.
    cd PleaseDo
    ```
 
-2. **Build & Run:**
+2. **Build the project:**
+   ```bash
+   swift build
+   ```
+
+3. **Run the application:**
    ```bash
    swift run
    ```
+   *The app will appear as a checklist icon in your menu bar tray.*
 
 ### Xcode Integration
 
-If you prefer using Xcode:
-1. Open common `Package.swift` in Xcode.
-2. Press `⌘R` to build and run the target.
+1. Open the project folder in Xcode:
+   ```bash
+   open Package.swift
+   ```
+2. Press `⌘R` to build and run the `PleaseDo` target.
 
 ## 📂 Project Navigation
 
-- **Sources/PleaseDo/Views**: All SwiftUI interface components.
-- **Sources/PleaseDo/ViewModels**: Core task logic and category management.
-- **Sources/PleaseDo/Models**: Data structures.
-- **Sources/PleaseDo/Repositories**: Local persistence implementation.
+The project follows a modular architecture for clarity and maintainability:
+
+- **Sources/PleaseDo/Views**: All SwiftUI interface components, including the custom glassmorphic header, task rows, and input area.
+- **Sources/PleaseDo/ViewModels**: The `TaskListViewModel`, which manages all reactive application state and business logic.
+- **Sources/PleaseDo/Models**: The `TaskItem` and `AppData` models defining our core data structures.
+- **Sources/PleaseDo/Repositories**: The `TaskRepository` protocol and its `LocalTaskRepository` implementation, handling all JSON-based file persistence in `~/Library/Application Support/PleaseDo/`.
+- **Sources/PleaseDo/PleaseDoApp.swift**: The main entry point and `AppDelegate`, which handles the native AppKit bridge for the Menu Bar popover and badge updates.
 
 ---
 *Stay focused. Get things done. PleaseDo.*
