@@ -35,9 +35,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// Storage for Combine subscriptions to prevent premature deallocation.
     var cancellables = Set<AnyCancellable>()
     
-    /// Queued badge text to apply after the popover closes to avoid layout jitter.
-    var pendingBadgeTitle: String? = nil
-    
     /**
      * Bootstraps the status item and popover configurations.
      * Sets the app to run as an accessory to hide the Dock icon.
@@ -53,8 +50,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
         self.popover = popover
         
-        // Setup Menu Bar Item
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // 2. Setup Menu Bar Item with fixed width to prevent popover wiggling during updates
+        statusItem = NSStatusBar.system.statusItem(withLength: 48)
         
         if let button = statusItem?.button {
             button.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "PleaseDo Tasks")
@@ -68,14 +65,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             .sink { [weak self] tasks in
                 guard let self = self else { return }
                 let pendingCount = tasks.filter { !$0.isCompleted }.count
-                let newTitle = pendingCount > 0 ? " \(pendingCount)" : ""
-                
-                // Defer title update if popover is open to prevent window jitter
-                if self.popover?.isShown == true {
-                    self.pendingBadgeTitle = newTitle
-                } else {
-                    self.statusItem?.button?.title = newTitle
-                }
+                self.statusItem?.button?.title = pendingCount > 0 ? " \(pendingCount)" : ""
             }
             .store(in: &cancellables)
             
@@ -83,15 +73,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItem?.button?.title = initialPending > 0 ? " \(initialPending)" : ""
     }
     
-    /**
-     * Applies stale badge updates when the popover is safely hidden.
-     */
-    func popoverDidClose(_ notification: Notification) {
-        if let pending = pendingBadgeTitle {
-            statusItem?.button?.title = pending
-            pendingBadgeTitle = nil
-        }
-    }
+    /* Logic removed: No longer deferring updates */
+    func popoverDidClose(_ notification: Notification) { }
     
     /**
      * Toggles the popover visibility state.
