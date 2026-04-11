@@ -6,6 +6,8 @@ public class TaskListViewModel: ObservableObject {
     @Published public var selectedCategory: String = ""
     @Published public var newTaskTitle: String = ""
     
+    @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
+    
     private let repository: TaskRepository
     private let maxCategories = 5
     
@@ -31,6 +33,7 @@ public class TaskListViewModel: ObservableObject {
             if !categories.isEmpty && selectedCategory.isEmpty {
                 self.selectedCategory = categories[0]
             }
+            pendingTaskCount = tasks.filter { !$0.isCompleted }.count
         } catch {
             print("Failed to load data: \(error)")
         }
@@ -40,6 +43,7 @@ public class TaskListViewModel: ObservableObject {
         let dataToSave = AppData(categories: categories, tasks: tasks)
         do {
             try repository.saveData(dataToSave)
+            pendingTaskCount = tasks.filter { !$0.isCompleted }.count
         } catch {
             print("Failed to save data: \(error)")
         }

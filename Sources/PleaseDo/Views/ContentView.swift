@@ -1,7 +1,11 @@
 import SwiftUI
 
 public struct ContentView: View {
-    @StateObject private var viewModel = TaskListViewModel()
+    @ObservedObject public var viewModel: TaskListViewModel
+    
+    public init(viewModel: TaskListViewModel) {
+        self.viewModel = viewModel
+    }
     @State private var showingAddCategory = false
     @State private var newCategoryName = ""
     
