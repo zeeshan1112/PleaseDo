@@ -23,6 +23,9 @@ public struct ContentView: View {
     /// Buffer for the name input during a rename operation.
     @State private var pendingRenameValue: String = ""
     
+    /// Tracks if the "Clear All Tasks" confirmation dialog is showing.
+    @State private var showingClearAllConfirmation = false
+    
     /// Namespace for shared geometry transitions (tab selection).
     @Namespace private var animation
     
@@ -37,7 +40,7 @@ public struct ContentView: View {
     public var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Header: Tabs and Global Controls
+                // Header Column: Tabs and Global Controls
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -105,7 +108,7 @@ public struct ContentView: View {
                         
                         Spacer(minLength: 4)
                         
-                        // Action Icons
+                        // Action Icons (Gear & Power)
                         HStack(spacing: 12) {
                             Menu {
                                 Section("Display") {
@@ -113,12 +116,28 @@ public struct ContentView: View {
                                 }
                                 
                                 Section("Category Actions") {
+                                    Button(action: {
+                                        withAnimation {
+                                            viewModel.archiveCompletedInSelectedCategory()
+                                        }
+                                    }) {
+                                        Label("Archive Completed", systemImage: "archivebox")
+                                    }
+                                    
                                     Button(role: .destructive, action: {
                                         withAnimation {
-                                            viewModel.clearAllInSelectedCategory()
+                                            showingClearAllConfirmation = true
                                         }
                                     }) {
                                         Label("Clear All Tasks", systemImage: "trash")
+                                    }
+                                }
+                                
+                                Section {
+                                    Button(action: {
+                                        NotificationCenter.default.post(name: .openArchiveWindow, object: nil)
+                                    }) {
+                                        Label("View Archive (\(viewModel.archiveCount))", systemImage: "archivebox.fill")
                                     }
                                 }
                                 
@@ -228,9 +247,57 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
             }
-            .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0)
+            .blur(radius: (categoryToDelete != nil || categoryToRename != nil || showingClearAllConfirmation) ? 3 : 0)
             
-            // Inline Confirmation Modal (Delete)
+            // Overlay: Clear All Confirmation
+            if showingClearAllConfirmation {
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        withAnimation { showingClearAllConfirmation = false }
+                    }
+                
+                VStack(spacing: 16) {
+                    Text("Clear All Tasks?")
+                        .font(.headline)
+                    
+                    Text("Are you sure you want to delete all tasks in '\(viewModel.selectedCategory)'? This cannot be undone.")
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
+                    
+                    HStack(spacing: 20) {
+                        Button("Cancel") {
+                            withAnimation { showingClearAllConfirmation = false }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.secondary.opacity(0.2))
+                        .cornerRadius(6)
+                        
+                        Button("Clear All") {
+                            withAnimation {
+                                viewModel.clearAllInSelectedCategory()
+                                showingClearAllConfirmation = false
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(Color.red)
+                        .cornerRadius(6)
+                        .foregroundColor(.white)
+                    }
+                }
+                .padding(20)
+                .background(Material.thick)
+                .cornerRadius(12)
+                .padding(30)
+                .transition(.scale.combined(with: .opacity))
+            }
+            
+            // Overlay: Delete Category Confirmation
             if let cat = categoryToDelete {
                 Color.black.opacity(0.4)
                     .edgesIgnoringSafeArea(.all)
@@ -280,7 +347,7 @@ public struct ContentView: View {
                 .transition(.scale.combined(with: .opacity))
             }
             
-            // Inline Rename Modal
+            // Overlay: Rename Category Dialog
             if let cat = categoryToRename {
                 Color.black.opacity(0.4)
                     .edgesIgnoringSafeArea(.all)
@@ -303,7 +370,6 @@ public struct ContentView: View {
                         Button("Cancel") {
                             withAnimation { categoryToRename = nil }
                         }
-                        .keyboardShortcut(.cancelAction)
                         .buttonStyle(.plain)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
@@ -342,23 +408,15 @@ public struct ContentView: View {
  * Renders a capsule highlight for the active state and supports hover actions.
  */
 struct CategoryTabButton: View {
-    /// Visual label of the tab.
     let title: String
-    /// Active state flag.
     let isSelected: Bool
-    /// Safety flag ensuring at least one category remains.
     let canDelete: Bool
-    /// Matched geometry identifier for smooth background sliding.
     let animation: Namespace.ID
     
-    /// Triggered on tab selection.
     let action: () -> Void
-    /// Triggered from the deletion menu/icon.
     let onDelete: () -> Void
-    /// Triggered from the context menu.
     let onRename: () -> Void
     
-    /// Internal hover state for revealing destructive actions.
     @State private var hover = false
     
     var body: some View {
@@ -411,11 +469,8 @@ struct CategoryTabButton: View {
  * A popover-resident capture form for adding new category definitions.
  */
 struct AddCategoryView: View {
-    /// Shared naming buffer.
     @Binding var newName: String
-    /// Confirmation callback.
     let onAdd: () -> Void
-    /// Reversion callback.
     let onCancel: () -> Void
     
     var body: some View {
@@ -446,12 +501,8 @@ struct AddCategoryView: View {
  * Handles user interactions for completion status and item removal.
  */
 public struct TaskRowView: View {
-    /// Immutable task snapshot.
     public let task: TaskItem
-    /// Reference to the state manager for side-effects.
     @ObservedObject public var viewModel: TaskListViewModel
-    
-    /// Tracks if the cursor is currently over the row.
     @State private var isHovering = false
     
     public var body: some View {
@@ -475,6 +526,21 @@ public struct TaskRowView: View {
                 .lineLimit(2)
             
             Spacer()
+            
+            if task.isCompleted {
+                Button(action: {
+                    withAnimation {
+                        viewModel.archiveTask(task)
+                    }
+                }) {
+                    Image(systemName: "archivebox")
+                        .foregroundColor(.blue.opacity(0.7))
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovering ? 1 : 0)
+                .help("Archive")
+            }
             
             Button(action: {
                 withAnimation {

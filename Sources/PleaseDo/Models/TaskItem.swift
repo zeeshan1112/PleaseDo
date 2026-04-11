@@ -2,30 +2,34 @@ import Foundation
 
 /**
  * Represents the top-level container for all application data persisted locally.
- * This acts as the schema wrap for the JSON database, ensuring custom categories and tasks
- * stay synchronized across application restarts.
+ * This acts as the schema wrap for the JSON database, ensuring custom categories,
+ * active tasks, and archived tasks stay synchronized across application restarts.
  */
 public struct AppData: Codable {
     /// An ordered list of user-defined category names (e.g., "Work", "Personal").
     public var categories: [String]
-    /// The comprehensive array of all registered user tasks.
+    /// The array of active (non-archived) user tasks.
     public var tasks: [TaskItem]
+    /// Metadata: Total number of tasks currently in the archive.
+    public var archivedCount: Int
     
     /**
      * Initializes a new application data construct.
      * - Parameters:
      *   - categories: The initial structural categories. Defaults to "Work" and "Personal".
-     *   - tasks: The collection of active and completed tasks.
+     *   - tasks: The collection of active tasks.
+     *   - archivedCount: The number of items in the separate archive.
      */
-    public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = []) {
+    public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = [], archivedCount: Int = 0) {
         self.categories = categories
         self.tasks = tasks
+        self.archivedCount = archivedCount
     }
 }
 
 /**
  * A discrete unit of work defined by the user.
- * Contains all metadata required to render, sort, and persist a single line-item task.
+ * Contains all metadata required to render, sort, persist, and archive a single task.
  */
 public struct TaskItem: Identifiable, Codable, Hashable {
     /// A unique identifier generated automatically upon task creation.
@@ -38,6 +42,8 @@ public struct TaskItem: Identifiable, Codable, Hashable {
     public var category: String
     /// The timestamp when this task was created, used for sorting.
     public var createdAt: Date
+    /// The timestamp when this task was last marked completed. Nil if never completed.
+    public var completedAt: Date?
     
     /**
      * Constructs a new TaskItem.
@@ -47,12 +53,14 @@ public struct TaskItem: Identifiable, Codable, Hashable {
      *   - isCompleted: Initial completion state. Defaults to false.
      *   - category: The category this task belongs to.
      *   - createdAt: Creation date. Defaults to current time.
+     *   - completedAt: Completion date. Defaults to nil.
      */
-    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, createdAt: Date = Date()) {
+    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, createdAt: Date = Date(), completedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.isCompleted = isCompleted
         self.category = category
         self.createdAt = createdAt
+        self.completedAt = completedAt
     }
 }

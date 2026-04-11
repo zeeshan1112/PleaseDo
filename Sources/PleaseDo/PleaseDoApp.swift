@@ -3,6 +3,13 @@ import AppKit
 import Combine
 
 /**
+ * Custom notification name for triggering the archive window from any part of the app.
+ */
+extension Notification.Name {
+    static let openArchiveWindow = Notification.Name("openArchiveWindow")
+}
+
+/**
  * The main entry point for the PleaseDo application.
  * Utilizes a background Settings scene to enable a pure Menu Bar experience.
  */
@@ -31,6 +38,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     
     /// Centralized state manager for the application.
     let viewModel = TaskListViewModel()
+    
+    /// Manages the standalone archive window lifecycle.
+    var archiveWindowController: ArchiveWindowController?
     
     /// Storage for Combine subscriptions to prevent premature deallocation.
     var cancellables = Set<AnyCancellable>()
@@ -76,6 +86,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             
         let initialPending = viewModel.tasks.filter { !$0.isCompleted }.count
         statusItem?.button?.title = initialPending > 0 ? " \(initialPending)" : ""
+        
+        // 4. Initialize Archive Window Controller and listen for open requests
+        archiveWindowController = ArchiveWindowController(viewModel: viewModel)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenArchive),
+            name: .openArchiveWindow,
+            object: nil
+        )
+    }
+    
+    /**
+     * Handles the notification to open the archive window.
+     */
+    @objc func handleOpenArchive() {
+        archiveWindowController?.showWindow()
     }
     
     /* Logic removed: No longer deferring updates */
