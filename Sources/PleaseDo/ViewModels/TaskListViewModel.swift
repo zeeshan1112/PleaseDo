@@ -22,7 +22,11 @@ public class TaskListViewModel: ObservableObject {
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
     
     /// User preference for visibility of the pending task count in the menu bar.
-    @AppStorage("showPendingCount") public var showPendingCount: Bool = true
+    @Published public var showPendingCount: Bool {
+        didSet {
+            UserDefaults.standard.set(showPendingCount, forKey: "showPendingCount")
+        }
+    }
     
     /// Concrete backing layer handling IO interactions.
     private let repository: TaskRepository
@@ -36,6 +40,7 @@ public class TaskListViewModel: ObservableObject {
      */
     public init(repository: TaskRepository = LocalTaskRepository()) {
         self.repository = repository
+        self.showPendingCount = UserDefaults.standard.object(forKey: "showPendingCount") as? Bool ?? true
         loadData()
     }
     

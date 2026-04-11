@@ -59,13 +59,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             button.target = self
         }
         
-        // Bind UI updates to data changes
-        viewModel.$tasks
+        // 3. Reactively Observe ViewModel to Update Badge Count Natively
+        Publishers.CombineLatest(viewModel.$tasks, viewModel.$showPendingCount)
             .receive(on: RunLoop.main)
-            .sink { [weak self] tasks in
+            .sink { [weak self] tasks, showPending in
                 guard let self = self else { return }
                 
-                if self.viewModel.showPendingCount {
+                if showPending {
                     let pendingCount = tasks.filter { !$0.isCompleted }.count
                     self.statusItem?.button?.title = pendingCount > 0 ? " \(pendingCount)" : ""
                 } else {

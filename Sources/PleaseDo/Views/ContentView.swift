@@ -139,18 +139,6 @@ public struct ContentView: View {
                             .menuStyle(.borderlessButton)
                             .fixedSize()
                             .help("Settings & Actions")
-
-                            Button(action: {
-                                withAnimation {
-                                    viewModel.clearCompleted()
-                                }
-                            }) {
-                                Image(systemName: "archivebox")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.secondary.opacity(0.8))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Clear Completed")
                             
                             Button(action: {
                                 NSApplication.shared.terminate(nil)
