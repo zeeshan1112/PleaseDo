@@ -116,26 +116,35 @@ public struct ContentView: View {
                 .background(Material.ultraThin)
                 
                 // List of Tasks
-                List {
-                    if viewModel.filteredTasks.isEmpty {
-                        Text("No tasks yet. \nReady to conquer your day? 🚀")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(.secondary)
-                            .font(.callout)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(.top, 40)
-                            .listRowBackground(Color.clear)
-                    } else {
-                        ForEach(viewModel.filteredTasks) { task in
-                            TaskRowView(task: task, viewModel: viewModel)
-                                .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 4) {
+                            if viewModel.filteredTasks.isEmpty {
+                                Text("No tasks yet. \nReady to conquer your day? 🚀")
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(.secondary)
+                                    .font(.callout)
+                                    .padding(.top, 60)
+                            } else {
+                                ForEach(viewModel.filteredTasks) { task in
+                                    TaskRowView(task: task, viewModel: viewModel)
+                                        .id(task.id)
+                                        .padding(.horizontal, 8)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color.clear)
+                    // Auto-scroll to top when a new task gets added
+                    .onChange(of: viewModel.filteredTasks.count) { _ in
+                        if let topTask = viewModel.filteredTasks.first {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(topTask.id, anchor: .top)
+                            }
                         }
                     }
                 }
-                .listStyle(.plain)
-                .background(Color.clear)
                 
                 // Input Area
                 VStack(spacing: 0) {
@@ -412,20 +421,17 @@ public struct TaskRowView: View {
             
             Spacer()
             
-            if isHovering {
-                Button(action: {
-                    withAnimation {
-                        viewModel.deleteTask(task)
-                    }
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red.opacity(0.8))
-                        .font(.system(size: 13, weight: .bold))
+            Button(action: {
+                withAnimation {
+                    viewModel.deleteTask(task)
                 }
-                .buttonStyle(.plain)
-                // small transition for the trash icon appearance
-                .transition(.opacity.combined(with: .scale))
+            }) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red.opacity(0.8))
+                    .font(.system(size: 13, weight: .bold))
             }
+            .buttonStyle(.plain)
+            .opacity(isHovering ? 1 : 0) // Preserves layout space to prevent text shifting!
         }
         .padding(.vertical, 6) // reduced vertical padding
         .padding(.horizontal, 8) // tightly hug the side
