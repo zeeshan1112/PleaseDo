@@ -1,18 +1,23 @@
 import Foundation
 
-public enum TaskCategory: String, Codable, CaseIterable {
-    case work = "Work"
-    case personal = "Personal"
+public struct AppData: Codable {
+    public var categories: [String]
+    public var tasks: [TaskItem]
+    
+    public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = []) {
+        self.categories = categories
+        self.tasks = tasks
+    }
 }
 
 public struct TaskItem: Identifiable, Codable, Hashable {
     public var id: UUID
     public var title: String
     public var isCompleted: Bool
-    public var category: TaskCategory
+    public var category: String
     public var createdAt: Date
     
-    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: TaskCategory, createdAt: Date = Date()) {
+    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, createdAt: Date = Date()) {
         self.id = id
         self.title = title
         self.isCompleted = isCompleted

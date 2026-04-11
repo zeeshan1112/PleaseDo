@@ -15,20 +15,32 @@ public class LocalTaskRepository: TaskRepository {
     
     public init() {}
     
-    public func fetchTasks() throws -> [TaskItem] {
+    public func fetchData() throws -> AppData {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return [] // Return empty if no file exists yet
+            return AppData() // Default "Work", "Personal"
         }
         
-        let data = try Data(contentsOf: fileURL)
+        let fileData = try Data(contentsOf: fileURL)
         let decoder = JSONDecoder()
-        return try decoder.decode([TaskItem].self, from: data)
+        
+        // Attempt to decode as AppData
+        do {
+            return try decoder.decode(AppData.self, from: fileData)
+        } catch {
+            // Migration: if the user previously had only [TaskItem]
+            if let legacyData = try? decoder.decode([TaskItem].self, from: fileData) {
+                let migrated = AppData(categories: ["Work", "Personal"], tasks: legacyData)
+                try? saveData(migrated)
+                return migrated
+            }
+            throw error
+        }
     }
     
-    public func saveTasks(_ tasks: [TaskItem]) throws {
+    public func saveData(_ data: AppData) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
-        let data = try encoder.encode(tasks)
-        try data.write(to: fileURL, options: .atomic)
+        let fileData = try encoder.encode(data)
+        try fileData.write(to: fileURL, options: .atomic)
     }
 }
