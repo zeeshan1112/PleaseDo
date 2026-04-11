@@ -132,9 +132,9 @@ public struct ContentView: View {
                                 
                                 Section {
                                     Button(action: {
-                                        withAnimation { viewModel.showingArchive = true }
+                                        NotificationCenter.default.post(name: .openArchiveWindow, object: nil)
                                     }) {
-                                        Label("View Archive (\(viewModel.archivedTasks.count))", systemImage: "archivebox.fill")
+                                        Label("View Archive", systemImage: "archivebox.fill")
                                     }
                                 }
                                 
@@ -244,7 +244,7 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
             }
-            .blur(radius: (categoryToDelete != nil || categoryToRename != nil || viewModel.showingArchive) ? 3 : 0)
+            .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0)
             
             // Inline Confirmation Modal (Delete)
             if let cat = categoryToDelete {
@@ -347,21 +347,6 @@ public struct ContentView: View {
                 .cornerRadius(12)
                 .padding(30)
                 .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Archive Overlay
-            if viewModel.showingArchive {
-                Color.black.opacity(0.3)
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture {
-                        withAnimation { viewModel.showingArchive = false }
-                    }
-                
-                ArchiveView(viewModel: viewModel)
-                    .frame(width: 300, height: 400)
-                    .cornerRadius(12)
-                    .shadow(color: Color.black.opacity(0.25), radius: 15, x: 0, y: 5)
-                    .transition(.scale.combined(with: .opacity))
             }
         }
         .frame(width: 320, height: 460)
