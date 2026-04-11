@@ -19,12 +19,19 @@ public struct ContentView: View {
                             CategoryTabButton(
                                 title: category,
                                 isSelected: viewModel.selectedCategory == category,
-                                animation: animation
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    viewModel.selectedCategory = category
+                                canDelete: viewModel.categories.count > 1,
+                                animation: animation,
+                                action: {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        viewModel.selectedCategory = category
+                                    }
+                                },
+                                onDelete: {
+                                    withAnimation {
+                                        viewModel.deleteCategory(category)
+                                    }
                                 }
-                            }
+                            )
                         }
                         
                         if viewModel.canAddCategory {
@@ -86,7 +93,7 @@ public struct ContentView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(Color.clear) // Made completely transparent!
             
             // Input Area
             VStack(spacing: 12) {
@@ -97,7 +104,7 @@ public struct ContentView: View {
                         .textFieldStyle(.plain)
                         .padding(.vertical, 10)
                         .padding(.horizontal, 14)
-                        .background(Color(NSColor.windowBackgroundColor))
+                        .background(Color(NSColor.windowBackgroundColor).opacity(0.7))
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -156,7 +163,6 @@ public struct ContentView: View {
             .background(Material.ultraThin)
         }
         .frame(width: 320, height: 460) // Slightly wider and taller for a premium feel
-        // .background(Color(NSColor.windowBackgroundColor)) is handled by app context natively
     }
 }
 
@@ -164,30 +170,51 @@ public struct ContentView: View {
 struct CategoryTabButton: View {
     let title: String
     let isSelected: Bool
+    let canDelete: Bool
     let animation: Namespace.ID
     let action: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var hover = false
     
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? .white : .primary.opacity(0.7))
-                .padding(.vertical, 6)
-                .padding(.horizontal, 14)
-                .background(
-                    ZStack {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color.blue)
-                                .matchedGeometryEffect(id: "ACTIVETAB", in: animation)
-                        } else {
-                            Capsule()
-                                .fill(Color.secondary.opacity(0.1))
-                        }
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
+                    .foregroundColor(isSelected ? .white : .primary.opacity(0.7))
+                
+                if hover && canDelete && isSelected {
+                    Button(action: onDelete) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.8))
                     }
-                )
+                    .buttonStyle(.plain)
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 14)
+            .background(
+                ZStack {
+                    if isSelected {
+                        Capsule()
+                            .fill(Color.blue)
+                            .matchedGeometryEffect(id: "ACTIVETAB", in: animation)
+                    } else {
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.1))
+                    }
+                }
+            )
         }
         .buttonStyle(.plain)
+        .onHover { isHovering in
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                hover = isHovering
+            }
+        }
     }
 }
 

@@ -56,6 +56,20 @@ public class TaskListViewModel: ObservableObject {
         return true
     }
     
+    public func deleteCategory(_ name: String) {
+        // Prevent deleting if it's the last category
+        guard categories.count > 1 else { return }
+        
+        categories.removeAll { $0 == name }
+        // Optional: remove all tasks assigned to that category
+        tasks.removeAll { $0.category == name }
+        
+        if selectedCategory == name {
+            selectedCategory = categories.first ?? ""
+        }
+        saveData()
+    }
+    
     // Task Actions
     public func addTask() {
         let trimmed = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
