@@ -34,6 +34,9 @@ public class TaskListViewModel: ObservableObject {
     /// Tracks if the archive has been loaded into memory during this session.
     @Published public var isArchiveLoaded: Bool = false
     
+    /// Persisted count of archived tasks for display without loading the full archive.
+    @Published public var archiveCount: Int = 0
+    
     /// Number of incomplete tasks, synced to AppStorage for the Menu Bar badge.
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
     
@@ -84,6 +87,7 @@ public class TaskListViewModel: ObservableObject {
             let appData = try repository.fetchData()
             self.categories = appData.categories
             self.tasks = appData.tasks
+            self.archiveCount = appData.archivedCount
             if !categories.isEmpty && selectedCategory.isEmpty {
                 self.selectedCategory = categories[0]
             }
@@ -97,7 +101,7 @@ public class TaskListViewModel: ObservableObject {
      * Serializes categories and active tasks to the primary store.
      */
     private func saveActiveData() {
-        let appData = AppData(categories: categories, tasks: tasks)
+        let appData = AppData(categories: categories, tasks: tasks, archivedCount: archiveCount)
         do {
             try repository.saveData(appData)
             pendingTaskCount = tasks.filter { !$0.isCompleted }.count
@@ -113,6 +117,7 @@ public class TaskListViewModel: ObservableObject {
         do {
             self.archivedTasks = try repository.fetchArchive()
             self.isArchiveLoaded = true
+            updateArchiveCount()
         } catch {
             print("Failed to load archive: \(error)")
         }
@@ -124,9 +129,18 @@ public class TaskListViewModel: ObservableObject {
     private func saveArchiveData() {
         do {
             try repository.saveArchive(archivedTasks)
+            updateArchiveCount()
         } catch {
             print("Failed to save archive data: \(error)")
         }
+    }
+    
+    /**
+     * Syncs the archiveCount property with the current archivedTasks array size and persists it.
+     */
+    private func updateArchiveCount() {
+        archiveCount = archivedTasks.count
+        saveActiveData()
     }
     
     // MARK: - Category Management
@@ -268,6 +282,14 @@ public class TaskListViewModel: ObservableObject {
     public func deleteArchivedTask(_ task: TaskItem) {
         if !isArchiveLoaded { loadArchive() }
         archivedTasks.removeAll { $0.id == task.id }
+        saveArchiveData()
+    }
+    
+    /**
+     * Permanently deletes all archived tasks.
+     */
+    public func deleteAllArchivedTasks() {
+        archivedTasks.removeAll()
         saveArchiveData()
     }
 }

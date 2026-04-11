@@ -48,6 +48,7 @@ public class LocalTaskRepository: TaskRepository {
             var categories: [String]
             var tasks: [TaskItem]
             var archivedTasks: [TaskItem]?
+            var archivedCount: Int?
         }
         
         do {
@@ -56,12 +57,14 @@ public class LocalTaskRepository: TaskRepository {
             // Migration: If the main file contains archived tasks, move them to the archive file
             if let archived = migData.archivedTasks, !archived.isEmpty {
                 // Construct AppData manually for the migration helper
-                let legacyAppData = AppData(categories: migData.categories, tasks: migData.tasks)
+                let legacyAppData = AppData(categories: migData.categories, tasks: migData.tasks, archivedCount: archived.count)
                 try? performMigration(legacyAppData, legacyArchivedTasks: archived)
                 return legacyAppData
             }
             
-            return AppData(categories: migData.categories, tasks: migData.tasks)
+            // If the main file doesn't have cached count, bootstrap it once
+            let countToReturn = migData.archivedCount ?? fetchArchiveCount()
+            return AppData(categories: migData.categories, tasks: migData.tasks, archivedCount: countToReturn)
         } catch {
             // Legacy Migration: handle various older formats
             return try handleLegacyMigration(fileData, decoder: decoder)
@@ -90,6 +93,26 @@ public class LocalTaskRepository: TaskRepository {
         let fileData = try Data(contentsOf: archiveFileURL)
         let decoder = JSONDecoder()
         return try decoder.decode([TaskItem].self, from: fileData)
+    }
+    
+    /**
+     * Efficiently fetches the count of archived tasks.
+     * Since archiving uses a separate JSON array, we still have to read it,
+     * but we don't need to keep it in memory.
+     */
+    public func fetchArchiveCount() -> Int {
+        guard FileManager.default.fileExists(atPath: archiveFileURL.path) else {
+            return 0
+        }
+        
+        do {
+            let fileData = try Data(contentsOf: archiveFileURL)
+            let decoder = JSONDecoder()
+            let archive = try decoder.decode([TaskItem].self, from: fileData)
+            return archive.count
+        } catch {
+            return 0
+        }
     }
     
     /**

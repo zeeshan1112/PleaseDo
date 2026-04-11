@@ -42,7 +42,7 @@ class ArchiveWindowController {
         let hostingController = NSHostingController(rootView: archiveView)
         
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -52,7 +52,7 @@ class ArchiveWindowController {
         panel.title = "PleaseDo — Archive"
         panel.isReleasedWhenClosed = false
         panel.center()
-        panel.minSize = NSSize(width: 420, height: 360)
+        panel.minSize = NSSize(width: 420, height: 500)
         panel.maxSize = NSSize(width: 900, height: 800)
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

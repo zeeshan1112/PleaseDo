@@ -20,6 +20,9 @@ public struct ArchiveView: View {
     /// Number of items currently visible (pagination cursor).
     @State private var visibleCount: Int = 50
     
+    /// Controls the confirmation prompt for deleting all archived tasks.
+    @State private var showingDeleteAllConfirmation = false
+    
     /// Page size for "Load More" pagination.
     private let pageSize: Int = 50
     
@@ -146,14 +149,14 @@ public struct ArchiveView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                             Text(selectedFilter)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 8, weight: .bold))
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(6)
                     }
@@ -175,14 +178,14 @@ public struct ArchiveView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.arrow.down")
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                             Text(sortOrder.rawValue)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 8, weight: .bold))
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(6)
                     }
@@ -190,11 +193,44 @@ public struct ArchiveView: View {
                     .fixedSize()
                     
                     Spacer()
+                    
+                    if !viewModel.archivedTasks.isEmpty {
+                        Button(action: {
+                            showingDeleteAllConfirmation = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                Text("Delete All")
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.red.opacity(0.8))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Permanently delete all archived tasks")
+                        .confirmationDialog(
+                            "Delete All Archived Tasks?",
+                            isPresented: $showingDeleteAllConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete All Tasks", role: .destructive) {
+                                withAnimation {
+                                    viewModel.deleteAllArchivedTasks()
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This action cannot be undone. All tasks in your archive will be permanently removed.")
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
             
             Divider()
             

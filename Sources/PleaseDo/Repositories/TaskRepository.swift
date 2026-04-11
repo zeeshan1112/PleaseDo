@@ -28,6 +28,12 @@ public protocol TaskRepository {
     func fetchArchive() throws -> [TaskItem]
     
     /**
+     * Efficiently fetches only the count of archived tasks without loading full objects if possible.
+     * - Returns: The number of archived tasks.
+     */
+    func fetchArchiveCount() -> Int
+    
+    /**
      * Saves the complete list of archived tasks to the persistent archive store.
      * - Parameter archivedTasks: The full array of archived tasks.
      * - Throws: Errors related to file access or decoding.

@@ -134,7 +134,7 @@ public struct ContentView: View {
                                     Button(action: {
                                         NotificationCenter.default.post(name: .openArchiveWindow, object: nil)
                                     }) {
-                                        Label("View Archive", systemImage: "archivebox.fill")
+                                        Label("View Archive (\(viewModel.archiveCount))", systemImage: "archivebox.fill")
                                     }
                                 }
                                 
