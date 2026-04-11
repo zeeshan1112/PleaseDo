@@ -97,7 +97,7 @@ public class TaskListViewModel: ObservableObject {
      * Serializes categories and active tasks to the primary store.
      */
     private func saveActiveData() {
-        let appData = AppData(categories: categories, tasks: tasks, archivedTasks: [])
+        let appData = AppData(categories: categories, tasks: tasks)
         do {
             try repository.saveData(appData)
             pendingTaskCount = tasks.filter { !$0.isCompleted }.count

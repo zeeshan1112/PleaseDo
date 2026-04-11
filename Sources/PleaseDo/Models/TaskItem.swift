@@ -10,20 +10,16 @@ public struct AppData: Codable {
     public var categories: [String]
     /// The array of active (non-archived) user tasks.
     public var tasks: [TaskItem]
-    /// The array of tasks that have been archived by the user.
-    public var archivedTasks: [TaskItem]
     
     /**
      * Initializes a new application data construct.
      * - Parameters:
      *   - categories: The initial structural categories. Defaults to "Work" and "Personal".
      *   - tasks: The collection of active tasks.
-     *   - archivedTasks: The collection of archived tasks. Defaults to empty.
      */
-    public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = [], archivedTasks: [TaskItem] = []) {
+    public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = []) {
         self.categories = categories
         self.tasks = tasks
-        self.archivedTasks = archivedTasks
     }
 }
 

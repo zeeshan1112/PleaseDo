@@ -43,17 +43,25 @@ public class LocalTaskRepository: TaskRepository {
         let fileData = try Data(contentsOf: tasksFileURL)
         let decoder = JSONDecoder()
         
+        // Use a local struct for migration detection that includes the legacy archivedTasks field
+        struct MigrationData: Codable {
+            var categories: [String]
+            var tasks: [TaskItem]
+            var archivedTasks: [TaskItem]?
+        }
+        
         do {
-            let appData = try decoder.decode(AppData.self, from: fileData)
+            let migData = try decoder.decode(MigrationData.self, from: fileData)
             
             // Migration: If the main file contains archived tasks, move them to the archive file
-            if !appData.archivedTasks.isEmpty {
-                try? performMigration(appData)
-                // Return a cleaned version without the archived tasks
-                return AppData(categories: appData.categories, tasks: appData.tasks, archivedTasks: [])
+            if let archived = migData.archivedTasks, !archived.isEmpty {
+                // Construct AppData manually for the migration helper
+                let legacyAppData = AppData(categories: migData.categories, tasks: migData.tasks)
+                try? performMigration(legacyAppData, legacyArchivedTasks: archived)
+                return legacyAppData
             }
             
-            return appData
+            return AppData(categories: migData.categories, tasks: migData.tasks)
         } catch {
             // Legacy Migration: handle various older formats
             return try handleLegacyMigration(fileData, decoder: decoder)
@@ -62,15 +70,12 @@ public class LocalTaskRepository: TaskRepository {
     
     /**
      * Persists categories and active tasks to tasks.json.
-     * Always saves with empty archivedTasks array to keep this file small.
+     * The archivedTasks field is now omitted entirely as it's no longer part of the AppData model.
      */
     public func saveData(_ data: AppData) throws {
-        var dataToSave = data
-        dataToSave.archivedTasks = [] // Ensure archive data is NOT in the main file
-        
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
-        let fileData = try encoder.encode(dataToSave)
+        let fileData = try encoder.encode(data)
         try fileData.write(to: tasksFileURL, options: .atomic)
     }
     
@@ -100,14 +105,14 @@ public class LocalTaskRepository: TaskRepository {
     // MARK: - Private Migration Helpers
     
     /**
-     * Moves archived tasks from a unified AppData object to the separate archive file.
+     * Moves archived tasks from a unified legacy store to the separate archive file.
      */
-    private func performMigration(_ appData: AppData) throws {
+    private func performMigration(_ appData: AppData, legacyArchivedTasks: [TaskItem]) throws {
         var existingArchive = (try? fetchArchive()) ?? []
-        existingArchive.append(contentsOf: appData.archivedTasks)
+        existingArchive.append(contentsOf: legacyArchivedTasks)
         try saveArchive(existingArchive)
         
-        // Save cleaned main file immidiately to finish migration
+        // Save cleaned main file immediately to finish migration
         try saveData(appData)
     }
     
@@ -122,7 +127,7 @@ public class LocalTaskRepository: TaskRepository {
         }
         
         if let v2Data = try? decoder.decode(LegacyAppData.self, from: fileData) {
-            let migrated = AppData(categories: v2Data.categories, tasks: v2Data.tasks, archivedTasks: [])
+            let migrated = AppData(categories: v2Data.categories, tasks: v2Data.tasks)
             try? saveData(migrated)
             return migrated
         }
