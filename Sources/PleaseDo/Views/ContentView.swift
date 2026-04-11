@@ -106,7 +106,40 @@ public struct ContentView: View {
                         Spacer(minLength: 4)
                         
                         // Action Icons
-                        HStack(spacing: 14) {
+                        HStack(spacing: 12) {
+                            Menu {
+                                Section("Display") {
+                                    Toggle("Show Task Count in Tray", isOn: $viewModel.showPendingCount)
+                                }
+                                
+                                Section("Category Actions") {
+                                    Button(role: .destructive, action: {
+                                        withAnimation {
+                                            viewModel.clearAllInSelectedCategory()
+                                        }
+                                    }) {
+                                        Label("Clear All Tasks", systemImage: "trash")
+                                    }
+                                }
+                                
+                                Divider()
+                                
+                                Button(action: {
+                                    if let url = URL(string: "https://pleasedo.io") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }) {
+                                    Label("About PleaseDo", systemImage: "info.circle")
+                                }
+                            } label: {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.secondary.opacity(0.8))
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                            .help("Settings & Actions")
+
                             Button(action: {
                                 withAnimation {
                                     viewModel.clearCompleted()

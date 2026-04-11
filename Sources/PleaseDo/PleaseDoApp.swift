@@ -64,8 +64,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] tasks in
                 guard let self = self else { return }
-                let pendingCount = tasks.filter { !$0.isCompleted }.count
-                self.statusItem?.button?.title = pendingCount > 0 ? " \(pendingCount)" : ""
+                
+                if self.viewModel.showPendingCount {
+                    let pendingCount = tasks.filter { !$0.isCompleted }.count
+                    self.statusItem?.button?.title = pendingCount > 0 ? " \(pendingCount)" : ""
+                } else {
+                    self.statusItem?.button?.title = ""
+                }
             }
             .store(in: &cancellables)
             

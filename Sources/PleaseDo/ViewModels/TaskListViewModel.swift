@@ -21,6 +21,9 @@ public class TaskListViewModel: ObservableObject {
     /// Number of incomplete tasks, synced to AppStorage for the Menu Bar badge.
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
     
+    /// User preference for visibility of the pending task count in the menu bar.
+    @AppStorage("showPendingCount") public var showPendingCount: Bool = true
+    
     /// Concrete backing layer handling IO interactions.
     private let repository: TaskRepository
     
@@ -184,6 +187,14 @@ public class TaskListViewModel: ObservableObject {
      */
     public func clearCompleted() {
         tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
+        saveData()
+    }
+    
+    /**
+     * Permanently removes every task associated with the currently selected category.
+     */
+    public func clearAllInSelectedCategory() {
+        tasks.removeAll { $0.category == selectedCategory }
         saveData()
     }
 }
