@@ -113,12 +113,28 @@ public struct ContentView: View {
                                 }
                                 
                                 Section("Category Actions") {
+                                    Button(action: {
+                                        withAnimation {
+                                            viewModel.archiveCompletedInSelectedCategory()
+                                        }
+                                    }) {
+                                        Label("Archive Completed", systemImage: "archivebox")
+                                    }
+                                    
                                     Button(role: .destructive, action: {
                                         withAnimation {
                                             viewModel.clearAllInSelectedCategory()
                                         }
                                     }) {
                                         Label("Clear All Tasks", systemImage: "trash")
+                                    }
+                                }
+                                
+                                Section {
+                                    Button(action: {
+                                        withAnimation { viewModel.showingArchive = true }
+                                    }) {
+                                        Label("View Archive (\(viewModel.archivedTasks.count))", systemImage: "archivebox.fill")
                                     }
                                 }
                                 
@@ -228,7 +244,7 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
             }
-            .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0)
+            .blur(radius: (categoryToDelete != nil || categoryToRename != nil || viewModel.showingArchive) ? 3 : 0)
             
             // Inline Confirmation Modal (Delete)
             if let cat = categoryToDelete {
@@ -331,6 +347,21 @@ public struct ContentView: View {
                 .cornerRadius(12)
                 .padding(30)
                 .transition(.scale.combined(with: .opacity))
+            }
+            
+            // Archive Overlay
+            if viewModel.showingArchive {
+                Color.black.opacity(0.3)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        withAnimation { viewModel.showingArchive = false }
+                    }
+                
+                ArchiveView(viewModel: viewModel)
+                    .frame(width: 300, height: 400)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.25), radius: 15, x: 0, y: 5)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
         .frame(width: 320, height: 460)
@@ -475,6 +506,21 @@ public struct TaskRowView: View {
                 .lineLimit(2)
             
             Spacer()
+            
+            if task.isCompleted {
+                Button(action: {
+                    withAnimation {
+                        viewModel.archiveTask(task)
+                    }
+                }) {
+                    Image(systemName: "archivebox")
+                        .foregroundColor(.blue.opacity(0.7))
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovering ? 1 : 0)
+                .help("Archive")
+            }
             
             Button(action: {
                 withAnimation {

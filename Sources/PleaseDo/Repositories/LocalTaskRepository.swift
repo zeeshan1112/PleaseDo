@@ -37,9 +37,20 @@ public class LocalTaskRepository: TaskRepository {
         let decoder = JSONDecoder()
         
         do {
-            return try decoder.decode(AppData.self, from: fileData)
+            let appData = try decoder.decode(AppData.self, from: fileData)
+            return appData
         } catch {
-            // Migration logic for v1 legacy models
+            // Migration: try decoding without archivedTasks (v2 format)
+            struct LegacyAppData: Codable {
+                var categories: [String]
+                var tasks: [TaskItem]
+            }
+            if let v2Data = try? decoder.decode(LegacyAppData.self, from: fileData) {
+                let migrated = AppData(categories: v2Data.categories, tasks: v2Data.tasks, archivedTasks: [])
+                try? saveData(migrated)
+                return migrated
+            }
+            // Migration: try decoding v1 bare array format
             if let legacyData = try? decoder.decode([TaskItem].self, from: fileData) {
                 let migrated = AppData(categories: ["Work", "Personal"], tasks: legacyData)
                 try? saveData(migrated)

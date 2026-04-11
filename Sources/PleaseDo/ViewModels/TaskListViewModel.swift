@@ -2,12 +2,15 @@ import SwiftUI
 
 /**
  * The main ViewModel for the task application.
- * Manages state for tasks, categories, and business logic for task/category CRUD.
+ * Manages state for tasks, categories, archiving, and business logic for task/category CRUD.
  * Coordinates between the UI and the persistence layer.
  */
 public class TaskListViewModel: ObservableObject {
     /// Active tasks published to UI observers.
     @Published public var tasks: [TaskItem] = []
+    
+    /// Archived tasks stored separately from active tasks.
+    @Published public var archivedTasks: [TaskItem] = []
     
     /// Available categories for task organization.
     @Published public var categories: [String] = []
@@ -17,6 +20,9 @@ public class TaskListViewModel: ObservableObject {
     
     /// Transient bound text for the new task input field.
     @Published public var newTaskTitle: String = ""
+    
+    /// Controls visibility of the archive viewer overlay.
+    @Published public var showingArchive: Bool = false
     
     /// Number of incomplete tasks, synced to AppStorage for the Menu Bar badge.
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
@@ -68,6 +74,7 @@ public class TaskListViewModel: ObservableObject {
             let appData = try repository.fetchData()
             self.categories = appData.categories
             self.tasks = appData.tasks
+            self.archivedTasks = appData.archivedTasks
             if !categories.isEmpty && selectedCategory.isEmpty {
                 self.selectedCategory = categories[0]
             }
@@ -81,7 +88,7 @@ public class TaskListViewModel: ObservableObject {
      * Serializes the current state and persists it to the repository.
      */
     private func saveData() {
-        let dataToSave = AppData(categories: categories, tasks: tasks)
+        let dataToSave = AppData(categories: categories, tasks: tasks, archivedTasks: archivedTasks)
         do {
             try repository.saveData(dataToSave)
             pendingTaskCount = tasks.filter { !$0.isCompleted }.count
@@ -128,6 +135,12 @@ public class TaskListViewModel: ObservableObject {
             }
         }
         
+        for i in 0..<archivedTasks.count {
+            if archivedTasks[i].category == oldName {
+                archivedTasks[i].category = trimmedName
+            }
+        }
+        
         if selectedCategory == oldName {
             selectedCategory = trimmedName
         }
@@ -137,7 +150,7 @@ public class TaskListViewModel: ObservableObject {
     }
     
     /**
-     * Removes a category and all associated tasks.
+     * Removes a category and all associated tasks (active and archived).
      * - Parameter name: Name of the category to delete.
      */
     public func deleteCategory(_ name: String) {
@@ -145,6 +158,7 @@ public class TaskListViewModel: ObservableObject {
         
         categories.removeAll { $0 == name }
         tasks.removeAll { $0.category == name }
+        archivedTasks.removeAll { $0.category == name }
         
         if selectedCategory == name {
             selectedCategory = categories.first ?? ""
@@ -200,6 +214,45 @@ public class TaskListViewModel: ObservableObject {
      */
     public func clearAllInSelectedCategory() {
         tasks.removeAll { $0.category == selectedCategory }
+        saveData()
+    }
+    
+    // MARK: - Archive Management
+    
+    /**
+     * Archives a single completed task by moving it from active tasks to the archive.
+     * Stamps the task with the current date as its archivedAt timestamp.
+     * - Parameter task: The completed task to archive.
+     */
+    public func archiveTask(_ task: TaskItem) {
+        guard task.isCompleted else { return }
+        
+        var archivedCopy = task
+        archivedCopy.archivedAt = Date()
+        archivedTasks.append(archivedCopy)
+        tasks.removeAll { $0.id == task.id }
+        saveData()
+    }
+    
+    /**
+     * Archives all completed tasks in the currently selected category.
+     */
+    public func archiveCompletedInSelectedCategory() {
+        let completed = tasks.filter { $0.category == selectedCategory && $0.isCompleted }
+        for var task in completed {
+            task.archivedAt = Date()
+            archivedTasks.append(task)
+        }
+        tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
+        saveData()
+    }
+    
+    /**
+     * Permanently deletes an archived task.
+     * - Parameter task: The archived task to purge.
+     */
+    public func deleteArchivedTask(_ task: TaskItem) {
+        archivedTasks.removeAll { $0.id == task.id }
         saveData()
     }
 }
