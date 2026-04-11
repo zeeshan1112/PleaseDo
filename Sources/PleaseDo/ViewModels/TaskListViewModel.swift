@@ -2,27 +2,37 @@ import SwiftUI
 
 /**
  * The main ViewModel for the task application.
- * Manages state for tasks, categories, archiving, and business logic for task/category CRUD.
- * Coordinates between the UI and the persistence layer.
+ * Manages state for tasks, categories, and handles lazy loading of the task archive.
+ * Coordinates between the UI and the dual-file persistence layer.
  */
 public class TaskListViewModel: ObservableObject {
     /// Active tasks published to UI observers.
     @Published public var tasks: [TaskItem] = []
     
-    /// Archived tasks stored separately from active tasks.
+    /// Archived tasks, loaded lazily only when requested.
     @Published public var archivedTasks: [TaskItem] = []
     
     /// Available categories for task organization.
     @Published public var categories: [String] = []
     
-    /// The currently selected category for filtering the task list.
+    /// The currently selected category for filtering the active task list.
     @Published public var selectedCategory: String = ""
     
     /// Transient bound text for the new task input field.
     @Published public var newTaskTitle: String = ""
     
     /// Controls visibility of the archive viewer overlay.
-    @Published public var showingArchive: Bool = false
+    /// Toggling this to true may trigger a lazy load of the archive data.
+    @Published public var showingArchive: Bool = false {
+        didSet {
+            if showingArchive && !isArchiveLoaded {
+                loadArchive()
+            }
+        }
+    }
+    
+    /// Tracks if the archive has been loaded into memory during this session.
+    @Published public var isArchiveLoaded: Bool = false
     
     /// Number of incomplete tasks, synced to AppStorage for the Menu Bar badge.
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
@@ -41,7 +51,7 @@ public class TaskListViewModel: ObservableObject {
     private let maxCategories = 5
     
     /**
-     * Provisions the ViewModel and performs initial data loading.
+     * Provisions the ViewModel and performs initial data loading (Active only).
      * - Parameter repository: Backing storage implementation.
      */
     public init(repository: TaskRepository = LocalTaskRepository()) {
@@ -66,61 +76,71 @@ public class TaskListViewModel: ObservableObject {
     }
     
     /**
-     * Loads data from the repository and updates local state.
-     * Falls back to default state if no data exists.
+     * Loads active tasks and categories from the primary store.
+     * This method ignores archived tasks to keep peak performance.
      */
     public func loadData() {
         do {
             let appData = try repository.fetchData()
             self.categories = appData.categories
             self.tasks = appData.tasks
-            self.archivedTasks = appData.archivedTasks
             if !categories.isEmpty && selectedCategory.isEmpty {
                 self.selectedCategory = categories[0]
             }
             pendingTaskCount = tasks.filter { !$0.isCompleted }.count
         } catch {
-            print("Failed to load data: \(error)")
+            print("Failed to load active data: \(error)")
         }
     }
     
     /**
-     * Serializes the current state and persists it to the repository.
+     * Serializes categories and active tasks to the primary store.
      */
-    private func saveData() {
-        let dataToSave = AppData(categories: categories, tasks: tasks, archivedTasks: archivedTasks)
+    private func saveActiveData() {
+        let appData = AppData(categories: categories, tasks: tasks, archivedTasks: [])
         do {
-            try repository.saveData(dataToSave)
+            try repository.saveData(appData)
             pendingTaskCount = tasks.filter { !$0.isCompleted }.count
         } catch {
-            print("Failed to save data: \(error)")
+            print("Failed to save active data: \(error)")
+        }
+    }
+    
+    /**
+     * Lazily loads the archive data into memory.
+     */
+    public func loadArchive() {
+        do {
+            self.archivedTasks = try repository.fetchArchive()
+            self.isArchiveLoaded = true
+        } catch {
+            print("Failed to load archive: \(error)")
+        }
+    }
+    
+    /**
+     * Serializes the current archivedTasks list to the archive store.
+     */
+    private func saveArchiveData() {
+        do {
+            try repository.saveArchive(archivedTasks)
+        } catch {
+            print("Failed to save archive data: \(error)")
         }
     }
     
     // MARK: - Category Management
     
-    /**
-     * Adds a new category to the system.
-     * - Parameter name: Raw string name for the new category.
-     * - Returns: True if added successfully, false if invalid or limit reached.
-     */
     public func addCategory(name: String) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, canAddCategory, !categories.contains(trimmedName) else { return false }
         
         categories.append(trimmedName)
         selectedCategory = trimmedName
-        saveData()
+        saveActiveData()
         return true
     }
     
-    /**
-     * Renames an existing category and migrates all assigned tasks.
-     * - Parameters:
-     *   - oldName: The current name of the category.
-     *   - newName: The desired new name.
-     * - Returns: True if renamed successfully.
-     */
     public func renameCategory(oldName: String, newName: String) -> Bool {
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, trimmedName != oldName, !categories.contains(trimmedName) else { return false }
@@ -135,42 +155,55 @@ public class TaskListViewModel: ObservableObject {
             }
         }
         
-        for i in 0..<archivedTasks.count {
-            if archivedTasks[i].category == oldName {
-                archivedTasks[i].category = trimmedName
+        // If archive is loaded, we update it too. 
+        // Note: If archive isn't loaded, we'd need to load it or handle it separately.
+        // For simplicity and correctness, we ensure archive is updated if loaded.
+        if isArchiveLoaded {
+            for i in 0..<archivedTasks.count {
+                if archivedTasks[i].category == oldName {
+                    archivedTasks[i].category = trimmedName
+                }
             }
+            saveArchiveData()
+        } else {
+            // Advanced: Update archive without loading it or queue it
+            // For now, let's assume renaming categories is rare and we can just load it if we must.
+            loadArchive()
+            for i in 0..<archivedTasks.count {
+                if archivedTasks[i].category == oldName {
+                    archivedTasks[i].category = trimmedName
+                }
+            }
+            saveArchiveData()
         }
         
         if selectedCategory == oldName {
             selectedCategory = trimmedName
         }
         
-        saveData()
+        saveActiveData()
         return true
     }
     
-    /**
-     * Removes a category and all associated tasks (active and archived).
-     * - Parameter name: Name of the category to delete.
-     */
     public func deleteCategory(_ name: String) {
         guard categories.count > 1 else { return }
         
         categories.removeAll { $0 == name }
         tasks.removeAll { $0.category == name }
+        
+        // Ensure archive items for this category are also removed
+        loadArchive()
         archivedTasks.removeAll { $0.category == name }
+        saveArchiveData()
         
         if selectedCategory == name {
             selectedCategory = categories.first ?? ""
         }
-        saveData()
+        saveActiveData()
     }
     
     // MARK: - Task Management
     
-    /**
-     * Creates a new task in the currently selected category.
-     */
     public func addTask() {
         let trimmed = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !selectedCategory.isEmpty else { return }
@@ -178,77 +211,63 @@ public class TaskListViewModel: ObservableObject {
         let task = TaskItem(title: trimmed, category: selectedCategory)
         tasks.append(task)
         newTaskTitle = ""
-        saveData()
+        saveActiveData()
     }
     
-    /**
-     * Toggles the completion state for a specific task.
-     * Stamps completedAt when marking complete, clears it when un-completing.
-     * - Parameter task: The task item to update.
-     */
     public func toggleTask(_ task: TaskItem) {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index].isCompleted.toggle()
             tasks[index].completedAt = tasks[index].isCompleted ? Date() : nil
-            saveData()
+            saveActiveData()
         }
     }
     
-    /**
-     * Permanently deletes a task.
-     * - Parameter task: The task item to remove.
-     */
     public func deleteTask(_ task: TaskItem) {
         tasks.removeAll { $0.id == task.id }
-        saveData()
+        saveActiveData()
     }
     
-    /**
-     * Clears all completed tasks within the selected category.
-     */
     public func clearCompleted() {
         tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
-        saveData()
+        saveActiveData()
     }
     
-    /**
-     * Permanently removes every task associated with the currently selected category.
-     */
     public func clearAllInSelectedCategory() {
         tasks.removeAll { $0.category == selectedCategory }
-        saveData()
+        saveActiveData()
     }
     
     // MARK: - Archive Management
     
-    /**
-     * Archives a single completed task by moving it from active tasks to the archive.
-     * - Parameter task: The completed task to archive.
-     */
     public func archiveTask(_ task: TaskItem) {
         guard task.isCompleted else { return }
         
+        // Load archive before modification to ensure we don't overwrite it
+        if !isArchiveLoaded { loadArchive() }
+        
         archivedTasks.append(task)
         tasks.removeAll { $0.id == task.id }
-        saveData()
+        
+        saveActiveData()
+        saveArchiveData()
     }
     
-    /**
-     * Archives all completed tasks in the currently selected category.
-     */
     public func archiveCompletedInSelectedCategory() {
         let completed = tasks.filter { $0.category == selectedCategory && $0.isCompleted }
+        guard !completed.isEmpty else { return }
+        
+        if !isArchiveLoaded { loadArchive() }
+        
         archivedTasks.append(contentsOf: completed)
         tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
-        saveData()
+        
+        saveActiveData()
+        saveArchiveData()
     }
     
-    /**
-     * Permanently deletes an archived task.
-     * - Parameter task: The archived task to purge.
-     */
     public func deleteArchivedTask(_ task: TaskItem) {
+        if !isArchiveLoaded { loadArchive() }
         archivedTasks.removeAll { $0.id == task.id }
-        saveData()
+        saveArchiveData()
     }
 }
