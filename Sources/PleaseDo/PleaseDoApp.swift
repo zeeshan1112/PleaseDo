@@ -2,39 +2,58 @@ import SwiftUI
 import AppKit
 import Combine
 
+/**
+ * The main entry point for the PleaseDo application.
+ * Utilizes a background Settings scene to enable a pure Menu Bar experience.
+ */
 @main
 struct PleaseDoApp: App {
-    // Inject AppDelegate wrapper
+    /// Native bridge for macOS application lifecycle events.
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        // App requires at least one Scene return. Settings is a hidden system background scene.
         Settings {
             EmptyView()
         }
     }
 }
 
+/**
+ * Orchestrates the native macOS system tray integration.
+ * Manages the status bar icon, the floating popover, and reactive data synchronization.
+ */
 class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    /// The physical button in the macOS menu bar.
     var statusItem: NSStatusItem?
+    
+    /// The interactive container for the SwiftUI interface.
     var popover: NSPopover?
+    
+    /// Centralized state manager for the application.
     let viewModel = TaskListViewModel()
+    
+    /// Storage for Combine subscriptions to prevent premature deallocation.
     var cancellables = Set<AnyCancellable>()
+    
+    /// Queued badge text to apply after the popover closes to avoid layout jitter.
     var pendingBadgeTitle: String? = nil
     
+    /**
+     * Bootstraps the status item and popover configurations.
+     * Sets the app to run as an accessory to hide the Dock icon.
+     */
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide dock icon, run as a background accessory service
         NSApplication.shared.setActivationPolicy(.accessory)
         
-        // 1. Create the Popover embedding our exact SwiftUI ContentView
+        // Setup Popover
         let popover = NSPopover()
         popover.contentSize = NSSize(width: 320, height: 460)
-        popover.behavior = .transient // Closes when clicked outside automatically
+        popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: ContentView(viewModel: viewModel))
         popover.delegate = self
         self.popover = popover
         
-        // 2. Create the Status Bar Item
+        // Setup Menu Bar Item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
@@ -43,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             button.target = self
         }
         
-        // 3. Reactively Observe ViewModel to Update Badge Count Natively
+        // Bind UI updates to data changes
         viewModel.$tasks
             .receive(on: RunLoop.main)
             .sink { [weak self] tasks in
@@ -51,9 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 let pendingCount = tasks.filter { !$0.isCompleted }.count
                 let newTitle = pendingCount > 0 ? " \(pendingCount)" : ""
                 
-                // If popover is actively open, updating the title will physically shrink/grow the 
-                // menu bar icon, instantly snapping the popover window left or right. 
-                // We defer the badge UI update until the window cleanly closes!
+                // Defer title update if popover is open to prevent window jitter
                 if self.popover?.isShown == true {
                     self.pendingBadgeTitle = newTitle
                 } else {
@@ -62,28 +79,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
             .store(in: &cancellables)
             
-        // Setup initial text
         let initialPending = viewModel.tasks.filter { !$0.isCompleted }.count
         statusItem?.button?.title = initialPending > 0 ? " \(initialPending)" : ""
     }
     
+    /**
+     * Applies stale badge updates when the popover is safely hidden.
+     */
     func popoverDidClose(_ notification: Notification) {
-        // Apply any pending badge task counts now that the window is safe
         if let pending = pendingBadgeTitle {
             statusItem?.button?.title = pending
             pendingBadgeTitle = nil
         }
     }
     
+    /**
+     * Toggles the popover visibility state.
+     * - Parameter sender: The invoking menu bar button.
+     */
     @objc func togglePopover(_ sender: AnyObject?) {
         guard let popover = popover, let button = statusItem?.button else { return }
         
         if popover.isShown {
             popover.performClose(sender)
         } else {
-            // Natively popup below the exact bounds of the menu bar icon
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            // Ensure popover takes focus allowing transient dismissal
             NSApplication.shared.activate(ignoringOtherApps: true)
         }
     }

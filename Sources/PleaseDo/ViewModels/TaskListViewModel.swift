@@ -1,30 +1,60 @@
 import SwiftUI
 
+/**
+ * The main ViewModel for the task application.
+ * Manages state for tasks, categories, and business logic for task/category CRUD.
+ * Coordinates between the UI and the persistence layer.
+ */
 public class TaskListViewModel: ObservableObject {
+    /// Active tasks published to UI observers.
     @Published public var tasks: [TaskItem] = []
+    
+    /// Available categories for task organization.
     @Published public var categories: [String] = []
+    
+    /// The currently selected category for filtering the task list.
     @Published public var selectedCategory: String = ""
+    
+    /// Transient bound text for the new task input field.
     @Published public var newTaskTitle: String = ""
     
+    /// Number of incomplete tasks, synced to AppStorage for the Menu Bar badge.
     @AppStorage("pendingCount") private var pendingTaskCount: Int = 0
     
+    /// Concrete backing layer handling IO interactions.
     private let repository: TaskRepository
+    
+    /// Hardcapped boundary for maximum categories allowed.
     private let maxCategories = 5
     
+    /**
+     * Provisions the ViewModel and performs initial data loading.
+     * - Parameter repository: Backing storage implementation.
+     */
     public init(repository: TaskRepository = LocalTaskRepository()) {
         self.repository = repository
         loadData()
     }
     
+    /**
+     * Derived list of tasks filtered by selected category and sorted by creation date.
+     */
     public var filteredTasks: [TaskItem] {
         tasks.filter { $0.category == selectedCategory }
             .sorted { $0.createdAt > $1.createdAt }
     }
     
+    /**
+     * Indicates if the maximum category limit has been reached.
+     */
     public var canAddCategory: Bool {
         categories.count < maxCategories
     }
     
+    /**
+     * Loads data from the repository and updates local state.
+     * Falls back to default state if no data exists.
+     */
     public func loadData() {
         do {
             let appData = try repository.fetchData()
@@ -39,6 +69,9 @@ public class TaskListViewModel: ObservableObject {
         }
     }
     
+    /**
+     * Serializes the current state and persists it to the repository.
+     */
     private func saveData() {
         let dataToSave = AppData(categories: categories, tasks: tasks)
         do {
@@ -49,7 +82,13 @@ public class TaskListViewModel: ObservableObject {
         }
     }
     
-    // Category Actions
+    // MARK: - Category Management
+    
+    /**
+     * Adds a new category to the system.
+     * - Parameter name: Raw string name for the new category.
+     * - Returns: True if added successfully, false if invalid or limit reached.
+     */
     public func addCategory(name: String) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, canAddCategory, !categories.contains(trimmedName) else { return false }
@@ -60,6 +99,13 @@ public class TaskListViewModel: ObservableObject {
         return true
     }
     
+    /**
+     * Renames an existing category and migrates all assigned tasks.
+     * - Parameters:
+     *   - oldName: The current name of the category.
+     *   - newName: The desired new name.
+     * - Returns: True if renamed successfully.
+     */
     public func renameCategory(oldName: String, newName: String) -> Bool {
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, trimmedName != oldName, !categories.contains(trimmedName) else { return false }
@@ -82,12 +128,14 @@ public class TaskListViewModel: ObservableObject {
         return true
     }
     
+    /**
+     * Removes a category and all associated tasks.
+     * - Parameter name: Name of the category to delete.
+     */
     public func deleteCategory(_ name: String) {
-        // Prevent deleting if it's the last category
         guard categories.count > 1 else { return }
         
         categories.removeAll { $0 == name }
-        // Optional: remove all tasks assigned to that category
         tasks.removeAll { $0.category == name }
         
         if selectedCategory == name {
@@ -96,7 +144,11 @@ public class TaskListViewModel: ObservableObject {
         saveData()
     }
     
-    // Task Actions
+    // MARK: - Task Management
+    
+    /**
+     * Creates a new task in the currently selected category.
+     */
     public func addTask() {
         let trimmed = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !selectedCategory.isEmpty else { return }
@@ -107,6 +159,10 @@ public class TaskListViewModel: ObservableObject {
         saveData()
     }
     
+    /**
+     * Toggles the completion state for a specific task.
+     * - Parameter task: The task item to update.
+     */
     public func toggleTask(_ task: TaskItem) {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index].isCompleted.toggle()
@@ -114,11 +170,18 @@ public class TaskListViewModel: ObservableObject {
         }
     }
     
+    /**
+     * Permanently deletes a task.
+     * - Parameter task: The task item to remove.
+     */
     public func deleteTask(_ task: TaskItem) {
         tasks.removeAll { $0.id == task.id }
         saveData()
     }
     
+    /**
+     * Clears all completed tasks within the selected category.
+     */
     public func clearCompleted() {
         tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
         saveData()

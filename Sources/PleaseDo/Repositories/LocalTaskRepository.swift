@@ -1,7 +1,14 @@
 import Foundation
 
+/**
+ * Implementation of TaskRepository using local JSON file storage.
+ * Data is stored in the user's Application Support directory.
+ */
 public class LocalTaskRepository: TaskRepository {
+    /// The hardcoded filename for the local task database.
     private let fileName = "tasks.json"
+    
+    /// The URL to the local tasks.json file in Application Support.
     private var fileURL: URL {
         let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let appDir = appSupportDir.appendingPathComponent("PleaseDo")
@@ -15,19 +22,24 @@ public class LocalTaskRepository: TaskRepository {
     
     public init() {}
     
+    /**
+     * Loads tasks and categories from disk.
+     * Includes a migration path for legacy [TaskItem] arrays from older app versions.
+     * - Returns: Reconstructed AppData snapshot.
+     * - Throws: Decoding errors if the file is corrupted.
+     */
     public func fetchData() throws -> AppData {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return AppData() // Default "Work", "Personal"
+            return AppData()
         }
         
         let fileData = try Data(contentsOf: fileURL)
         let decoder = JSONDecoder()
         
-        // Attempt to decode as AppData
         do {
             return try decoder.decode(AppData.self, from: fileData)
         } catch {
-            // Migration: if the user previously had only [TaskItem]
+            // Migration logic for v1 legacy models
             if let legacyData = try? decoder.decode([TaskItem].self, from: fileData) {
                 let migrated = AppData(categories: ["Work", "Personal"], tasks: legacyData)
                 try? saveData(migrated)
@@ -37,6 +49,11 @@ public class LocalTaskRepository: TaskRepository {
         }
     }
     
+    /**
+     * Persists AppData to a JSON file atomically to prevent data loss.
+     * - Parameter data: AppData packet defining exhaustive runtime configurations.
+     * - Throws: Filesystem operation constraints.
+     */
     public func saveData(_ data: AppData) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted

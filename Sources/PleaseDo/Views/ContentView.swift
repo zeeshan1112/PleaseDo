@@ -1,29 +1,45 @@
 import SwiftUI
 
+/**
+ * The main view for the Menu Bar popover.
+ * Briges the SwiftUI interface into the native AppKit NSPopover container.
+ */
 public struct ContentView: View {
+    /// Injected shared logic and state manager.
     @ObservedObject public var viewModel: TaskListViewModel
     
+    /// Toggle for the 'Add Category' popover.
+    @State private var showingAddCategory = false
+    
+    /// Temporary storage for new category name input.
+    @State private var newCategoryName = ""
+    
+    /// Tracks the category pending confirmation for deletion.
+    @State private var categoryToDelete: String? = nil
+    
+    /// Tracks the category pending name update.
+    @State private var categoryToRename: String? = nil
+    
+    /// Buffer for the name input during a rename operation.
+    @State private var pendingRenameValue: String = ""
+    
+    /// Namespace for shared geometry transitions (tab selection).
+    @Namespace private var animation
+    
+    /**
+     * Standard initializer for injecting the ViewModel.
+     * - Parameter viewModel: The shared task state manager.
+     */
     public init(viewModel: TaskListViewModel) {
         self.viewModel = viewModel
     }
-    @State private var showingAddCategory = false
-    @State private var newCategoryName = ""
-    
-    // Modal states
-    @State private var categoryToDelete: String? = nil
-    @State private var categoryToRename: String? = nil
-    @State private var pendingRenameValue: String = ""
-    
-    // Smooth matched geometry effect for tab switching navigation
-    @Namespace private var animation
     
     public var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Elegant Header Background using Material
+                // Header: Tabs and Global Controls
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        // Category Header Scroll
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(viewModel.categories, id: \.self) { category in
@@ -58,7 +74,7 @@ public struct ContentView: View {
                                         Image(systemName: "plus")
                                             .fontWeight(.bold)
                                             .foregroundColor(.white)
-                                            .padding(6) // slightly smaller padding for harmony
+                                            .padding(6)
                                             .background(Color.blue)
                                             .clipShape(Circle())
                                             .shadow(color: Color.blue.opacity(0.4), radius: 3, x: 0, y: 2)
@@ -89,7 +105,7 @@ public struct ContentView: View {
                         
                         Spacer(minLength: 4)
                         
-                        // Top Right Control Icons
+                        // Action Icons
                         HStack(spacing: 14) {
                             Button(action: {
                                 withAnimation {
@@ -119,7 +135,7 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
                 
-                // List of Tasks
+                // Task List Section
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 4) {
@@ -140,7 +156,6 @@ public struct ContentView: View {
                         .padding(.vertical, 8)
                     }
                     .background(Color.clear)
-                    // Auto-scroll to top when a new task gets added
                     .onChange(of: viewModel.filteredTasks.count) { _ in
                         if let topTask = viewModel.filteredTasks.first {
                             withAnimation(.easeOut(duration: 0.2)) {
@@ -150,7 +165,7 @@ public struct ContentView: View {
                     }
                 }
                 
-                // Input Area
+                // Quick Entry Area
                 VStack(spacing: 0) {
                     Divider().opacity(0.5)
                     
@@ -192,9 +207,9 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
             }
-            .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0) // Blur background when modal is open
+            .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0)
             
-            // Inline Deletion modal
+            // Inline Confirmation Modal (Delete)
             if let cat = categoryToDelete {
                 Color.black.opacity(0.4)
                     .edgesIgnoringSafeArea(.all)
@@ -206,7 +221,7 @@ public struct ContentView: View {
                     Text("Delete Category?")
                         .font(.headline)
                     
-                    Text("Are you sure you want to delete '\(cat)'? All tasks assigned to this category will be permanently removed.")
+                    Text("Are you sure you want to delete '\(cat)'? All associated tasks will be removed.")
                         .font(.footnote)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 8)
@@ -216,12 +231,11 @@ public struct ContentView: View {
                             withAnimation { categoryToDelete = nil }
                         }
                         .keyboardShortcut(.cancelAction)
+                        .buttonStyle(.plain)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
                         .background(Color.secondary.opacity(0.2))
                         .cornerRadius(6)
-                        .foregroundColor(.primary)
-                        .buttonStyle(.plain)
                         
                         Button("Delete") {
                             withAnimation {
@@ -230,19 +244,17 @@ public struct ContentView: View {
                             }
                         }
                         .keyboardShortcut(.defaultAction)
+                        .buttonStyle(.plain)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
                         .background(Color.red)
                         .cornerRadius(6)
                         .foregroundColor(.white)
-                        .buttonStyle(.plain)
                     }
-                    .padding(.top, 4)
                 }
                 .padding(20)
                 .background(Material.thick)
                 .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
                 .padding(30)
                 .transition(.scale.combined(with: .opacity))
             }
@@ -271,12 +283,11 @@ public struct ContentView: View {
                             withAnimation { categoryToRename = nil }
                         }
                         .keyboardShortcut(.cancelAction)
+                        .buttonStyle(.plain)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
                         .background(Color.secondary.opacity(0.2))
                         .cornerRadius(6)
-                        .foregroundColor(.primary)
-                        .buttonStyle(.plain)
                         
                         Button("Save") {
                             withAnimation {
@@ -286,37 +297,47 @@ public struct ContentView: View {
                         }
                         .keyboardShortcut(.defaultAction)
                         .disabled(pendingRenameValue.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .buttonStyle(.plain)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
                         .background(pendingRenameValue.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.blue)
                         .cornerRadius(6)
                         .foregroundColor(.white)
-                        .buttonStyle(.plain)
                     }
-                    .padding(.top, 4)
                 }
                 .padding(20)
                 .background(Material.thick)
                 .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
                 .padding(30)
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .frame(width: 320, height: 460) // Slightly wider and taller for a premium feel
+        .frame(width: 320, height: 460)
     }
 }
 
-// Custom Category Tab Button with matched geometry effect for elegant transitioning
+/**
+ * A custom tab button for selecting categories.
+ * Renders a capsule highlight for the active state and supports hover actions.
+ */
 struct CategoryTabButton: View {
+    /// Visual label of the tab.
     let title: String
+    /// Active state flag.
     let isSelected: Bool
+    /// Safety flag ensuring at least one category remains.
     let canDelete: Bool
+    /// Matched geometry identifier for smooth background sliding.
     let animation: Namespace.ID
+    
+    /// Triggered on tab selection.
     let action: () -> Void
+    /// Triggered from the deletion menu/icon.
     let onDelete: () -> Void
+    /// Triggered from the context menu.
     let onRename: () -> Void
     
+    /// Internal hover state for revealing destructive actions.
     @State private var hover = false
     
     var body: some View {
@@ -333,7 +354,6 @@ struct CategoryTabButton: View {
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.vertical, 6)
@@ -353,13 +373,9 @@ struct CategoryTabButton: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Rename") {
-                onRename()
-            }
+            Button("Rename") { onRename() }
             if canDelete {
-                Button("Delete", role: .destructive) {
-                    onDelete()
-                }
+                Button("Delete", role: .destructive) { onDelete() }
             }
         }
         .onHover { isHovering in
@@ -370,9 +386,15 @@ struct CategoryTabButton: View {
     }
 }
 
+/**
+ * A popover-resident capture form for adding new category definitions.
+ */
 struct AddCategoryView: View {
+    /// Shared naming buffer.
     @Binding var newName: String
+    /// Confirmation callback.
     let onAdd: () -> Void
+    /// Reversion callback.
     let onCancel: () -> Void
     
     var body: some View {
@@ -398,13 +420,21 @@ struct AddCategoryView: View {
     }
 }
 
+/**
+ * A functional row component rendering a single task instance.
+ * Handles user interactions for completion status and item removal.
+ */
 public struct TaskRowView: View {
+    /// Immutable task snapshot.
     public let task: TaskItem
+    /// Reference to the state manager for side-effects.
     @ObservedObject public var viewModel: TaskListViewModel
+    
+    /// Tracks if the cursor is currently over the row.
     @State private var isHovering = false
     
     public var body: some View {
-        HStack(spacing: 8) { // Reduced spacing for tighter checkbox padding
+        HStack(spacing: 8) {
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     viewModel.toggleTask(task)
@@ -412,7 +442,7 @@ public struct TaskRowView: View {
             }) {
                 Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
                     .resizable()
-                    .frame(width: 16, height: 16) // Slightly smaller box for elegance
+                    .frame(width: 16, height: 16)
                     .foregroundColor(task.isCompleted ? .blue : .secondary.opacity(0.5))
             }
             .buttonStyle(.plain)
@@ -435,10 +465,10 @@ public struct TaskRowView: View {
                     .font(.system(size: 13, weight: .bold))
             }
             .buttonStyle(.plain)
-            .opacity(isHovering ? 1 : 0) // Preserves layout space to prevent text shifting!
+            .opacity(isHovering ? 1 : 0)
         }
-        .padding(.vertical, 6) // reduced vertical padding
-        .padding(.horizontal, 8) // tightly hug the side
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isHovering ? Color.secondary.opacity(0.05) : Color.clear)
