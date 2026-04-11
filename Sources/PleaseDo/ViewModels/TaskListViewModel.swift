@@ -183,11 +183,13 @@ public class TaskListViewModel: ObservableObject {
     
     /**
      * Toggles the completion state for a specific task.
+     * Stamps completedAt when marking complete, clears it when un-completing.
      * - Parameter task: The task item to update.
      */
     public func toggleTask(_ task: TaskItem) {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index].isCompleted.toggle()
+            tasks[index].completedAt = tasks[index].isCompleted ? Date() : nil
             saveData()
         }
     }
@@ -221,15 +223,12 @@ public class TaskListViewModel: ObservableObject {
     
     /**
      * Archives a single completed task by moving it from active tasks to the archive.
-     * Stamps the task with the current date as its archivedAt timestamp.
      * - Parameter task: The completed task to archive.
      */
     public func archiveTask(_ task: TaskItem) {
         guard task.isCompleted else { return }
         
-        var archivedCopy = task
-        archivedCopy.archivedAt = Date()
-        archivedTasks.append(archivedCopy)
+        archivedTasks.append(task)
         tasks.removeAll { $0.id == task.id }
         saveData()
     }
@@ -239,10 +238,7 @@ public class TaskListViewModel: ObservableObject {
      */
     public func archiveCompletedInSelectedCategory() {
         let completed = tasks.filter { $0.category == selectedCategory && $0.isCompleted }
-        for var task in completed {
-            task.archivedAt = Date()
-            archivedTasks.append(task)
-        }
+        archivedTasks.append(contentsOf: completed)
         tasks.removeAll { $0.category == selectedCategory && $0.isCompleted }
         saveData()
     }

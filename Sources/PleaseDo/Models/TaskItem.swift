@@ -42,8 +42,8 @@ public struct TaskItem: Identifiable, Codable, Hashable {
     public var category: String
     /// The timestamp when this task was created, used for sorting.
     public var createdAt: Date
-    /// The timestamp when this task was archived. Nil if the task is still active.
-    public var archivedAt: Date?
+    /// The timestamp when this task was last marked completed. Nil if never completed.
+    public var completedAt: Date?
     
     /**
      * Constructs a new TaskItem.
@@ -53,14 +53,14 @@ public struct TaskItem: Identifiable, Codable, Hashable {
      *   - isCompleted: Initial completion state. Defaults to false.
      *   - category: The category this task belongs to.
      *   - createdAt: Creation date. Defaults to current time.
-     *   - archivedAt: Archive date. Defaults to nil.
+     *   - completedAt: Completion date. Defaults to nil.
      */
-    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, createdAt: Date = Date(), archivedAt: Date? = nil) {
+    public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, createdAt: Date = Date(), completedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.isCompleted = isCompleted
         self.category = category
         self.createdAt = createdAt
-        self.archivedAt = archivedAt
+        self.completedAt = completedAt
     }
 }

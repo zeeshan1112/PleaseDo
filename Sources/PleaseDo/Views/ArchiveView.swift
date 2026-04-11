@@ -11,12 +11,12 @@ public struct ArchiveView: View {
     @State private var selectedFilter: String = "All"
     
     /// Sort order for displayed archive items.
-    @State private var sortOrder: SortOrder = .archivedNewest
+    @State private var sortOrder: SortOrder = .completedNewest
     
     /// Available sort strategies.
     enum SortOrder: String, CaseIterable {
-        case archivedNewest = "Archived (Newest)"
-        case archivedOldest = "Archived (Oldest)"
+        case completedNewest = "Completed (Newest)"
+        case completedOldest = "Completed (Oldest)"
         case createdNewest = "Created (Newest)"
         case createdOldest = "Created (Oldest)"
     }
@@ -32,10 +32,10 @@ public struct ArchiveView: View {
         }
         
         switch sortOrder {
-        case .archivedNewest:
-            result.sort { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) }
-        case .archivedOldest:
-            result.sort { ($0.archivedAt ?? .distantPast) < ($1.archivedAt ?? .distantPast) }
+        case .completedNewest:
+            result.sort { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+        case .completedOldest:
+            result.sort { ($0.completedAt ?? .distantPast) < ($1.completedAt ?? .distantPast) }
         case .createdNewest:
             result.sort { $0.createdAt > $1.createdAt }
         case .createdOldest:
@@ -219,8 +219,8 @@ struct ArchivedTaskRow: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.blue.opacity(0.7))
                 
-                if let archivedAt = task.archivedAt {
-                    Label(Self.dateFormatter.string(from: archivedAt), systemImage: "archivebox")
+                if let completedAt = task.completedAt {
+                    Label(Self.dateFormatter.string(from: completedAt), systemImage: "checkmark.circle")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
