@@ -31,38 +31,49 @@ class ArchiveWindowController {
             viewModel.loadArchive()
         }
         
-        // If the panel already exists, just bring it to attention
-        if let existingPanel = panel, existingPanel.isVisible {
-            existingPanel.makeKeyAndOrderFront(nil)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            return
+        let targetWidth: CGFloat = 560
+        let targetHeight: CGFloat = 700
+        
+        // Setup or update the panel
+        if panel == nil {
+            let archiveView = ArchiveView(viewModel: viewModel)
+            let hostingController = NSHostingController(rootView: archiveView)
+            
+            let newPanel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: targetWidth, height: targetHeight),
+                styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            
+            newPanel.contentViewController = hostingController
+            newPanel.title = "PleaseDo — Archive"
+            newPanel.isReleasedWhenClosed = false
+            newPanel.minSize = NSSize(width: 420, height: 750)
+            newPanel.maxSize = NSSize(width: 900, height: 1200)
+            newPanel.level = .floating
+            newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            newPanel.isMovableByWindowBackground = true
+            newPanel.titlebarAppearsTransparent = false
+            newPanel.backgroundColor = NSColor.windowBackgroundColor
+            self.panel = newPanel
         }
         
-        let archiveView = ArchiveView(viewModel: viewModel)
-        let hostingController = NSHostingController(rootView: archiveView)
+        guard let activePanel = panel else { return }
         
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
+        // Calculate the center of the main screen manually to override macOS caching
+        if let screen = NSScreen.main {
+            let screenRect = screen.visibleFrame
+            let newX = screenRect.origin.x + (screenRect.width - targetWidth) / 2
+            let newY = screenRect.origin.y + (screenRect.height - targetHeight) / 2
+            
+            // Force the size and position once and for all
+            activePanel.setFrame(NSRect(x: newX, y: newY, width: targetWidth, height: targetHeight), display: true, animate: true)
+        } else {
+            activePanel.center()
+        }
         
-        panel.contentViewController = hostingController
-        panel.title = "PleaseDo — Archive"
-        panel.isReleasedWhenClosed = false
-        panel.center()
-        panel.minSize = NSSize(width: 420, height: 500)
-        panel.maxSize = NSSize(width: 900, height: 800)
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovableByWindowBackground = true
-        panel.titlebarAppearsTransparent = false
-        panel.backgroundColor = NSColor.windowBackgroundColor
-        
-        self.panel = panel
-        
-        panel.makeKeyAndOrderFront(nil)
+        activePanel.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
     

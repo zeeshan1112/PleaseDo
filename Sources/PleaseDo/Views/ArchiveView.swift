@@ -86,51 +86,80 @@ public struct ArchiveView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+            // Compressed Header
+            VStack(spacing: 10) {
+                // Row 1: Title and Clear Action
+                HStack(alignment: .lastTextBaseline) {
+                    VStack(alignment: .leading, spacing: 0) {
                         Text("Task Archive")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
                         
-                        Text("\(allFilteredTasks.count) tasks archived")
-                            .font(.system(size: 12, weight: .medium))
+                        Text("\(allFilteredTasks.count) tasks")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                     }
                     
                     Spacer()
-                }
-                
-                // Search Bar
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                        .font(.system(size: 13))
                     
-                    TextField("Search archived tasks...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                    
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 12))
+                    if !viewModel.archivedTasks.isEmpty {
+                        Button(action: {
+                            showingDeleteAllConfirmation = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                Text("Clear Archive")
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.red.opacity(0.8))
                         }
                         .buttonStyle(.plain)
+                        .confirmationDialog(
+                            "Delete All Archived Tasks?",
+                            isPresented: $showingDeleteAllConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete All Tasks", role: .destructive) {
+                                withAnimation {
+                                    viewModel.deleteAllArchivedTasks()
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This action cannot be undone.")
+                        }
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
-                )
                 
-                // Filter Controls Row
-                HStack(spacing: 10) {
+                // Row 2: Search and Filters (Unified Toolbar)
+                HStack(spacing: 8) {
+                    // Search Field
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 11))
+                        
+                        TextField("Search...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                        
+                        if !searchText.isEmpty {
+                            Button(action: { searchText = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 11))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+                    )
+                    
                     // Category Filter
                     Menu {
                         ForEach(filterOptions, id: \.self) { option in
@@ -148,15 +177,13 @@ public struct ArchiveView: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.system(size: 11))
                             Text(selectedFilter)
                                 .font(.system(size: 11, weight: .medium))
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 8, weight: .bold))
                         }
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 5)
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(6)
                     }
@@ -179,58 +206,22 @@ public struct ArchiveView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up.arrow.down")
                                 .font(.system(size: 11))
-                            Text(sortOrder.rawValue)
-                                .font(.system(size: 11, weight: .medium))
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 8, weight: .bold))
                         }
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 5)
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(6)
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
-                    
-                    Spacer()
-                    
-                    if !viewModel.archivedTasks.isEmpty {
-                        Button(action: {
-                            showingDeleteAllConfirmation = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "trash")
-                                Text("Delete All")
-                            }
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.red.opacity(0.8))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Permanently delete all archived tasks")
-                        .confirmationDialog(
-                            "Delete All Archived Tasks?",
-                            isPresented: $showingDeleteAllConfirmation,
-                            titleVisibility: .visible
-                        ) {
-                            Button("Delete All Tasks", role: .destructive) {
-                                withAnimation {
-                                    viewModel.deleteAllArchivedTasks()
-                                }
-                            }
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            Text("This action cannot be undone. All tasks in your archive will be permanently removed.")
-                        }
-                    }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
             .padding(.bottom, 10)
+            .background(Color(NSColor.windowBackgroundColor))
             
             Divider()
             
