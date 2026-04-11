@@ -18,68 +18,98 @@ public struct ContentView: View {
             VStack(spacing: 0) {
                 // Elegant Header Background using Material
                 VStack(spacing: 0) {
-                    // Category Header Scroll
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(viewModel.categories, id: \.self) { category in
-                                CategoryTabButton(
-                                    title: category,
-                                    isSelected: viewModel.selectedCategory == category,
-                                    canDelete: viewModel.categories.count > 1,
-                                    animation: animation,
-                                    action: {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            viewModel.selectedCategory = category
-                                        }
-                                    },
-                                    onDelete: {
-                                        withAnimation {
-                                            categoryToDelete = category
-                                        }
-                                    },
-                                    onRename: {
-                                        withAnimation {
-                                            pendingRenameValue = category
-                                            categoryToRename = category
-                                        }
-                                    }
-                                )
-                            }
-                            
-                            if viewModel.canAddCategory {
-                                Button(action: {
-                                    showingAddCategory.toggle()
-                                }) {
-                                    Image(systemName: "plus")
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.white)
-                                        .padding(8)
-                                        .background(Color.blue)
-                                        .clipShape(Circle())
-                                        .shadow(color: Color.blue.opacity(0.4), radius: 3, x: 0, y: 2)
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.leading, 4)
-                                .popover(isPresented: $showingAddCategory, arrowEdge: .bottom) {
-                                    AddCategoryView(
-                                        newName: $newCategoryName,
-                                        onAdd: {
-                                            let success = viewModel.addCategory(name: newCategoryName)
-                                            if success {
-                                                newCategoryName = ""
-                                                showingAddCategory = false
+                    HStack(spacing: 8) {
+                        // Category Header Scroll
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(viewModel.categories, id: \.self) { category in
+                                    CategoryTabButton(
+                                        title: category,
+                                        isSelected: viewModel.selectedCategory == category,
+                                        canDelete: viewModel.categories.count > 1,
+                                        animation: animation,
+                                        action: {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                viewModel.selectedCategory = category
                                             }
                                         },
-                                        onCancel: {
-                                            newCategoryName = ""
-                                            showingAddCategory = false
+                                        onDelete: {
+                                            withAnimation {
+                                                categoryToDelete = category
+                                            }
+                                        },
+                                        onRename: {
+                                            withAnimation {
+                                                pendingRenameValue = category
+                                                categoryToRename = category
+                                            }
                                         }
                                     )
                                 }
+                                
+                                if viewModel.canAddCategory {
+                                    Button(action: {
+                                        showingAddCategory.toggle()
+                                    }) {
+                                        Image(systemName: "plus")
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                            .padding(6) // slightly smaller padding for harmony
+                                            .background(Color.blue)
+                                            .clipShape(Circle())
+                                            .shadow(color: Color.blue.opacity(0.4), radius: 3, x: 0, y: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.leading, 4)
+                                    .popover(isPresented: $showingAddCategory, arrowEdge: .bottom) {
+                                        AddCategoryView(
+                                            newName: $newCategoryName,
+                                            onAdd: {
+                                                let success = viewModel.addCategory(name: newCategoryName)
+                                                if success {
+                                                    newCategoryName = ""
+                                                    showingAddCategory = false
+                                                }
+                                            },
+                                            onCancel: {
+                                                newCategoryName = ""
+                                                showingAddCategory = false
+                                            }
+                                        )
+                                    }
+                                }
                             }
+                            .padding(.leading, 16)
+                            .padding(.vertical, 12)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        
+                        Spacer(minLength: 4)
+                        
+                        // Top Right Control Icons
+                        HStack(spacing: 14) {
+                            Button(action: {
+                                withAnimation {
+                                    viewModel.clearCompleted()
+                                }
+                            }) {
+                                Image(systemName: "archivebox")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.secondary.opacity(0.8))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear Completed")
+                            
+                            Button(action: {
+                                NSApplication.shared.terminate(nil)
+                            }) {
+                                Image(systemName: "power")
+                                    .font(.system(size: 14, weight: .heavy))
+                                    .foregroundColor(.secondary.opacity(0.8))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Quit")
+                        }
+                        .padding(.trailing, 16)
                     }
                     Divider().opacity(0.5)
                 }
@@ -108,7 +138,7 @@ public struct ContentView: View {
                 .background(Color.clear)
                 
                 // Input Area
-                VStack(spacing: 12) {
+                VStack(spacing: 0) {
                     Divider().opacity(0.5)
                     
                     HStack(spacing: 12) {
@@ -144,34 +174,9 @@ public struct ContentView: View {
                         .buttonStyle(.plain)
                         .disabled(viewModel.newTaskTitle.isEmpty)
                     }
-                    
-                    HStack {
-                        Button(action: {
-                            withAnimation {
-                                viewModel.clearCompleted()
-                            }
-                        }) {
-                            Text("Clear Completed")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            NSApplication.shared.terminate(nil)
-                        }) {
-                            Image(systemName: "power")
-                                .font(.system(size: 11, weight: .heavy))
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
                 .background(Material.ultraThin)
             }
             .blur(radius: (categoryToDelete != nil || categoryToRename != nil) ? 3 : 0) // Blur background when modal is open
