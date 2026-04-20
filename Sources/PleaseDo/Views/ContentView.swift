@@ -29,6 +29,12 @@ public struct ContentView: View {
     /// Namespace for shared geometry transitions (tab selection).
     @Namespace private var animation
     
+    /// Tracks the task currently being dragged for reordering.
+    @State private var draggedTask: TaskItem? = nil
+    
+    /// Tracks the current drop target for reordering visualization.
+    @State private var dropTargetId: UUID? = nil
+    
     /**
      * Standard initializer for injecting the ViewModel.
      * - Parameter viewModel: The shared task state manager.
@@ -186,11 +192,31 @@ public struct ContentView: View {
                                     .font(.callout)
                                     .padding(.top, 60)
                             } else {
-                                ForEach(viewModel.filteredTasks) { task in
-                                    TaskRowView(task: task, viewModel: viewModel)
-                                        .id(task.id)
-                                        .padding(.horizontal, 8)
-                                }
+                                 ForEach(viewModel.filteredTasks) { task in
+                                     VStack(spacing: 0) {
+                                         if dropTargetId == task.id {
+                                             Divider()
+                                                 .background(Color.blue)
+                                                 .frame(height: 2)
+                                                 .padding(.horizontal, 8)
+                                         }
+                                         TaskRowView(task: task, viewModel: viewModel)
+                                             .id(task.id)
+                                             .opacity(draggedTask == task ? 0 : 1)
+                                             .padding(.horizontal, 8)
+                                             .onDrag {
+                                                 self.draggedTask = task
+                                                 return NSItemProvider(object: task.id.uuidString as NSString)
+                                             }
+                                             .onDrop(of: [.text], delegate: TaskDropDelegate(
+                                                 item: task,
+                                                 viewModel: viewModel,
+                                                 draggedItem: $draggedTask,
+                                                 dropTargetId: $dropTargetId
+                                             ))
+                                     }
+                                 }
+
                             }
                         }
                         .padding(.vertical, 8)
@@ -400,6 +426,11 @@ public struct ContentView: View {
             }
         }
         .frame(width: 320, height: 460)
+        .onDrop(of: [.text], isTargeted: nil) { _ in
+            self.draggedTask = nil
+            self.dropTargetId = nil
+            return true
+        }
     }
 }
 
@@ -507,6 +538,11 @@ public struct TaskRowView: View {
     
     public var body: some View {
         HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary.opacity(isHovering ? 0.8 : 0.4))
+                .padding(.horizontal, 4)
+            
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     viewModel.toggleTask(task)
@@ -554,6 +590,7 @@ public struct TaskRowView: View {
             .buttonStyle(.plain)
             .opacity(isHovering ? 1 : 0)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .background(
@@ -565,5 +602,42 @@ public struct TaskRowView: View {
                 isHovering = hovering
             }
         }
+    }
+}
+
+/**
+ * Handles the drop logic for task reordering.
+ * Re-routes movement commands back to the ViewModel while maintaining UI synchronization.
+ */
+struct TaskDropDelegate: DropDelegate {
+    let item: TaskItem
+    let viewModel: TaskListViewModel
+    @Binding var draggedItem: TaskItem?
+    @Binding var dropTargetId: UUID?
+    
+    func dropEntered(info: DropInfo) {
+        self.dropTargetId = item.id
+    }
+    
+    func performDrop(info: DropInfo) -> Bool {
+        defer {
+            self.draggedItem = nil
+            self.dropTargetId = nil
+        }
+        
+        guard let draggedItem = draggedItem,
+              let from = viewModel.filteredTasks.firstIndex(of: draggedItem),
+              let to = viewModel.filteredTasks.firstIndex(of: item)
+        else { return false }
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            viewModel.moveTask(from: IndexSet(integer: from), to: to > from ? to + 1 : to)
+        }
+        
+        return true
+    }
+    
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
     }
 }
