@@ -64,11 +64,11 @@ public class TaskListViewModel: ObservableObject {
     }
     
     /**
-     * Derived list of tasks filtered by selected category and sorted by creation date.
+     * Derived list of tasks filtered by selected category and sorted by manual order index.
      */
     public var filteredTasks: [TaskItem] {
         tasks.filter { $0.category == selectedCategory }
-            .sorted { $0.createdAt > $1.createdAt }
+            .sorted { $0.orderIndex < $1.orderIndex }
     }
     
     /**
@@ -88,6 +88,13 @@ public class TaskListViewModel: ObservableObject {
             self.categories = appData.categories
             self.tasks = appData.tasks
             self.archiveCount = appData.archivedCount
+            
+            // Migration: If tasks have no order, assign one based on creation date (descending)
+            // This ensures a stable initial state for the new manual ordering system.
+            if !tasks.isEmpty && tasks.allSatisfy({ $0.orderIndex == 0 }) {
+                reIndexAllTasks()
+            }
+            
             if !categories.isEmpty && selectedCategory.isEmpty {
                 self.selectedCategory = categories[0]
             }
@@ -222,9 +229,60 @@ public class TaskListViewModel: ObservableObject {
         let trimmed = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !selectedCategory.isEmpty else { return }
         
-        let task = TaskItem(title: trimmed, category: selectedCategory)
+        // We insert new tasks at the top (lowest index)
+        // To avoid negative indices, we can just shift everything up by 1 and set new to 0
+        for i in 0..<tasks.count {
+            if tasks[i].category == selectedCategory {
+                tasks[i].orderIndex += 1
+            }
+        }
+        
+        let task = TaskItem(title: trimmed, category: selectedCategory, orderIndex: 0)
         tasks.append(task)
         newTaskTitle = ""
+        saveActiveData()
+    }
+    
+    /**
+     * Re-orders tasks based on a drag-and-drop operation within the UI.
+     * - Parameters:
+     *   - source: The original offsets of the tasks being moved.
+     *   - destination: The new target offset.
+     */
+    public func moveTask(from source: IndexSet, to destination: Int) {
+        // 1. Get the tasks associated with the current category in their current sorted order
+        var categoryTasks = filteredTasks
+        
+        // 2. Perform the move in the temporary array
+        categoryTasks.move(fromOffsets: source, toOffset: destination)
+        
+        // 3. Update the orderIndex for these tasks in a local copy to avoid multiple notifications
+        var updatedTasks = tasks
+        for (index, task) in categoryTasks.enumerated() {
+            if let globalIndex = updatedTasks.firstIndex(where: { $0.id == task.id }) {
+                updatedTasks[globalIndex].orderIndex = index
+            }
+        }
+        
+        self.tasks = updatedTasks
+        saveActiveData()
+    }
+    
+    /**
+     * Normalizes order indices for all tasks across all categories.
+     * Useful for migration or clean-up.
+     */
+    private func reIndexAllTasks() {
+        for category in categories {
+            let catTasks = tasks.filter { $0.category == category }
+                .sorted { $0.createdAt > $1.createdAt } // Default to Newest First for migration
+            
+            for (index, task) in catTasks.enumerated() {
+                if let globalIndex = tasks.firstIndex(where: { $0.id == task.id }) {
+                    tasks[globalIndex].orderIndex = index
+                }
+            }
+        }
         saveActiveData()
     }
     
