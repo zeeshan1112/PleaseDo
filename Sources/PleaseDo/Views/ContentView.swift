@@ -518,7 +518,7 @@ public struct TaskRowView: View {
                     viewModel.toggleTask(task)
                 }
             }) {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .resizable()
                     .frame(width: 16, height: 16)
                     .foregroundColor(task.isCompleted ? .blue : .secondary.opacity(0.5))
