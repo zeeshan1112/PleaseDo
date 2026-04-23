@@ -29,12 +29,6 @@ public struct ContentView: View {
     /// Namespace for shared geometry transitions (tab selection).
     @Namespace private var animation
     
-    /// Tracks the task currently being dragged for reordering.
-    @State private var draggedTask: TaskItem? = nil
-    
-    /// Tracks the current drop target for reordering visualization.
-    @State private var dropTargetId: UUID? = nil
-    
     /**
      * Standard initializer for injecting the ViewModel.
      * - Parameter viewModel: The shared task state manager.
@@ -181,55 +175,30 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
                 
-                // Task List Section
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 4) {
-                            if viewModel.filteredTasks.isEmpty {
-                                Text("No tasks yet. \nReady to conquer your day? 🚀")
-                                    .multilineTextAlignment(.center)
-                                    .foregroundColor(.secondary)
-                                    .font(.callout)
-                                    .padding(.top, 60)
-                            } else {
-                                 ForEach(viewModel.filteredTasks) { task in
-                                     VStack(spacing: 0) {
-                                         if dropTargetId == task.id {
-                                             Divider()
-                                                 .background(Color.blue)
-                                                 .frame(height: 2)
-                                                 .padding(.horizontal, 8)
-                                         }
-                                         TaskRowView(task: task, viewModel: viewModel)
-                                             .id(task.id)
-                                             .opacity(draggedTask == task ? 0 : 1)
-                                             .padding(.horizontal, 8)
-                                             .onDrag {
-                                                 self.draggedTask = task
-                                                 return NSItemProvider(object: task.id.uuidString as NSString)
-                                             }
-                                             .onDrop(of: [.text], delegate: TaskDropDelegate(
-                                                 item: task,
-                                                 viewModel: viewModel,
-                                                 draggedItem: $draggedTask,
-                                                 dropTargetId: $dropTargetId
-                                             ))
-                                     }
-                                 }
-
-                            }
+                    // Task List Section
+                  VStack(spacing: 0) {
+                      if viewModel.filteredTasks.isEmpty {
+                          Text("No tasks yet. \nReady to conquer your day? 🚀")
+                                 .multilineTextAlignment(.center)
+                                 .foregroundColor(.secondary)
+                                 .font(.callout)
+                                 .padding(.top, 60)
+                                 .frame(maxWidth: .infinity)
+                        } else {
+                           List {
+                               ForEach(viewModel.filteredTasks) { task in
+                                   VStack(spacing: 0) {
+                                       TaskRowView(task: task, viewModel: viewModel)
+                                               .padding(.horizontal, 8)
+                                    }
+                               }
+                               .onMove { source, destination in
+                                   viewModel.moveTask(from: source, to: destination)
+                               }
+                           }
+                           .listStyle(.plain)
                         }
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color.clear)
-                    .onChange(of: viewModel.filteredTasks.count) { _ in
-                        if let topTask = viewModel.filteredTasks.first {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                proxy.scrollTo(topTask.id, anchor: .top)
-                            }
-                        }
-                    }
-                }
+                  }
                 
                 // Quick Entry Area
                 VStack(spacing: 0) {
@@ -426,13 +395,8 @@ public struct ContentView: View {
             }
         }
         .frame(width: 320, height: 460)
-        .onDrop(of: [.text], isTargeted: nil) { _ in
-            self.draggedTask = nil
-            self.dropTargetId = nil
-            return true
-        }
-    }
-}
+      }
+   }
 
 /**
  * A custom tab button for selecting categories.
@@ -602,42 +566,5 @@ public struct TaskRowView: View {
                 isHovering = hovering
             }
         }
-    }
-}
-
-/**
- * Handles the drop logic for task reordering.
- * Re-routes movement commands back to the ViewModel while maintaining UI synchronization.
- */
-struct TaskDropDelegate: DropDelegate {
-    let item: TaskItem
-    let viewModel: TaskListViewModel
-    @Binding var draggedItem: TaskItem?
-    @Binding var dropTargetId: UUID?
-    
-    func dropEntered(info: DropInfo) {
-        self.dropTargetId = item.id
-    }
-    
-    func performDrop(info: DropInfo) -> Bool {
-        defer {
-            self.draggedItem = nil
-            self.dropTargetId = nil
-        }
-        
-        guard let draggedItem = draggedItem,
-              let from = viewModel.filteredTasks.firstIndex(of: draggedItem),
-              let to = viewModel.filteredTasks.firstIndex(of: item)
-        else { return false }
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            viewModel.moveTask(from: IndexSet(integer: from), to: to > from ? to + 1 : to)
-        }
-        
-        return true
-    }
-    
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .move)
     }
 }
