@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-20
+**Generated:** 2026-04-23
 **Project:** PleaseDo
 **Type:** Swift macOS Menu Bar App
 

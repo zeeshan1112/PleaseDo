@@ -513,11 +513,6 @@ public struct TaskRowView: View {
     
     public var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary.opacity(isHovering ? 0.8 : 0.4))
-                .padding(.horizontal, 4)
-            
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     viewModel.toggleTask(task)
@@ -529,8 +524,8 @@ public struct TaskRowView: View {
                     .foregroundColor(task.isCompleted ? .blue : .secondary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            
-             Text(task.title)
+
+            Text(task.title)
                   .font(.system(size: 14, weight: .regular, design: .default))
                   .strikethrough(task.isCompleted)
                   .foregroundColor(task.isCompleted ? .secondary : .primary)
