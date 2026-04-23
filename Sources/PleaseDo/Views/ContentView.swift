@@ -175,30 +175,40 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
                 
-                    // Task List Section
-                  VStack(spacing: 0) {
-                      if viewModel.filteredTasks.isEmpty {
-                          Text("No tasks yet. \nReady to conquer your day? 🚀")
-                                 .multilineTextAlignment(.center)
-                                 .foregroundColor(.secondary)
-                                 .font(.callout)
-                                 .padding(.top, 60)
-                                 .frame(maxWidth: .infinity)
-                        } else {
-                           List {
-                               ForEach(viewModel.filteredTasks) { task in
-                                   VStack(spacing: 0) {
-                                       TaskRowView(task: task, viewModel: viewModel)
-                                               .padding(.horizontal, 8)
+                   // Task List Section
+                   VStack(spacing: 0) {
+                       if viewModel.filteredTasks.isEmpty {
+                           Text("No tasks yet. \nReady to conquer your day? 🚀")
+                                   .multilineTextAlignment(.center)
+                                   .foregroundColor(.secondary)
+                                   .font(.callout)
+                                   .padding(.top, 60)
+                                   .frame(maxWidth: .infinity)
+                          } else {
+                            ScrollViewReader { proxy in
+                                List {
+                                    ForEach(viewModel.filteredTasks) { task in
+                                        VStack(spacing: 0) {
+                                            TaskRowView(task: task, viewModel: viewModel)
+                                                     .padding(.horizontal, 8)
+                                                .id(task.id)
+                                              }
                                     }
-                               }
-                               .onMove { source, destination in
-                                   viewModel.moveTask(from: source, to: destination)
-                               }
-                           }
-                           .listStyle(.plain)
-                        }
-                  }
+                                    .onMove { source, destination in
+                                       viewModel.moveTask(from: source, to: destination)
+                                    }
+                                }
+                                .listStyle(.plain)
+                                .onChange(of: viewModel.filteredTasks.count) { _ in
+                                   if let topTask = viewModel.filteredTasks.first {
+                                      withAnimation(.easeOut(duration: 0.2)) {
+                                         proxy.scrollTo(topTask.id, anchor: .top)
+                                      }
+                                   }
+                                }
+                            }
+                          }
+                    }
                 
                 // Quick Entry Area
                 VStack(spacing: 0) {
