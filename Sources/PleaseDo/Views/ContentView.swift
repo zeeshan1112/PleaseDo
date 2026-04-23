@@ -178,24 +178,25 @@ public struct ContentView: View {
                    // Task List Section
                    VStack(spacing: 0) {
                        if viewModel.filteredTasks.isEmpty {
-                           Text("No tasks yet. \nReady to conquer your day? 🚀")
-                                   .multilineTextAlignment(.center)
-                                   .foregroundColor(.secondary)
-                                   .font(.callout)
-                                   .padding(.top, 60)
-                                   .frame(maxWidth: .infinity)
+                            Text("No tasks yet. \nReady to conquer your day? 🚀")
+                                     .multilineTextAlignment(.center)
+                                     .foregroundColor(.secondary)
+                                     .font(.callout)
+                                     .padding(.top, 60)
+                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                           } else {
                             ScrollViewReader { proxy in
                                 List {
-                                    ForEach(viewModel.filteredTasks) { task in
-                                        VStack(spacing: 0) {
-                                            TaskRowView(task: task, viewModel: viewModel)
-                                                     .padding(.horizontal, 8)
-                                                .id(task.id)
-                                              }
-                                    }
-                                    .onMove { source, destination in
-                                       viewModel.moveTask(from: source, to: destination)
+                                     ForEach(viewModel.filteredTasks) { task in
+                                         VStack(spacing: 0) {
+                                             TaskRowView(task: task, viewModel: viewModel)
+                                                       .padding(.horizontal, 8)
+                                         }
+                                         .id(task.id)
+                                         .listRowSeparator(.hidden)
+                                     }
+                                     .onMove { source, destination in
+                                        viewModel.moveTask(from: source, to: destination)
                                     }
                                 }
                                 .listStyle(.plain)
@@ -529,11 +530,12 @@ public struct TaskRowView: View {
             }
             .buttonStyle(.plain)
             
-            Text(task.title)
-                .font(.system(size: 14, weight: .regular, design: .default))
-                .strikethrough(task.isCompleted)
-                .foregroundColor(task.isCompleted ? .secondary : .primary)
-                .lineLimit(2)
+             Text(task.title)
+                  .font(.system(size: 14, weight: .regular, design: .default))
+                  .strikethrough(task.isCompleted)
+                  .foregroundColor(task.isCompleted ? .secondary : .primary)
+                  .lineLimit(3)
+                  .help(task.title)
             
             Spacer()
             
