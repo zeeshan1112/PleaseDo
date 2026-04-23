@@ -64,11 +64,16 @@ public class TaskListViewModel: ObservableObject {
     }
     
     /**
-     * Derived list of tasks filtered by selected category and sorted by manual order index.
+     * Derived list of tasks filtered by selected category.
+     * Incomplete tasks appear first sorted by orderIndex, completed tasks trail at the bottom sorted by orderIndex.
      */
     public var filteredTasks: [TaskItem] {
-        tasks.filter { $0.category == selectedCategory }
-            .sorted { $0.orderIndex < $1.orderIndex }
+        let filtered = tasks.filter { $0.category == selectedCategory }
+        let incomplete = filtered.filter { !$0.isCompleted }
+             .sorted { $0.orderIndex < $1.orderIndex }
+        let completed = filtered.filter { $0.isCompleted }
+             .sorted { $0.orderIndex < $1.orderIndex }
+        return incomplete + completed
     }
     
     /**
