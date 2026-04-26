@@ -639,10 +639,24 @@ struct DoubleClickOverlay: NSViewRepresentable {
 class DoubleClickNSView: NSView {
     var onDoubleClick: (() -> Void)?
     
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return self
+    }
+    
     override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
         if event.clickCount == 2 {
             onDoubleClick?()
         }
-        super.mouseDown(with: event)
     }
 }
