@@ -26,8 +26,6 @@ public class TaskListViewModel: ObservableObject {
     
     @Published public var editDraftTitle: String = ""
     
-    @Published public var draggingTaskId: UUID? = nil
-    
     /// Controls visibility of the archive viewer overlay.
     /// Toggling this to true may trigger a lazy load of the archive data.
     @Published public var showingArchive: Bool = false {
