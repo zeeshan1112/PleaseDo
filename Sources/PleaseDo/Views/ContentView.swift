@@ -369,8 +369,18 @@ public struct TaskRowView: View {
         .background(rowBackground)
         .overlay(rowBorder)
         .onHover { hovering in withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering } }
-        .onChange(of: isEditing) { if $0 { isEditFieldFocused = true } }
-        .onChange(of: isEditFieldFocused) { if !$0 && isEditing { viewModel.commitCurrentEdit() } }
+        .onChange(of: isEditing) { editing in
+            if editing {
+                DispatchQueue.main.async {
+                    isEditFieldFocused = true
+                }
+            }
+        }
+        .onChange(of: isEditFieldFocused) { focused in
+            if !focused && viewModel.editingTaskId == task.id {
+                viewModel.commitCurrentEdit()
+            }
+        }
         .contentShape(Rectangle())
     }
     
@@ -399,6 +409,11 @@ public struct TaskRowView: View {
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.blue.opacity(0.3), lineWidth: 1))
             .onSubmit { viewModel.commitCurrentEdit() }
             .onExitCommand { viewModel.cancelCurrentEdit() }
+            .onAppear {
+                DispatchQueue.main.async {
+                    isEditFieldFocused = true
+                }
+            }
     }
     
     private var taskTitle: some View {
@@ -415,7 +430,8 @@ public struct TaskRowView: View {
             Button(action: { viewModel.startEditing(taskId: task.id) }) {
                 Image(systemName: "pencil")
                     .foregroundColor(.secondary.opacity(0.7))
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
             .opacity(isHovering ? 1 : 0)
@@ -426,6 +442,7 @@ public struct TaskRowView: View {
                     Image(systemName: "archivebox")
                         .foregroundColor(.blue.opacity(0.7))
                         .font(.system(size: 12, weight: .bold))
+                        .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovering ? 1 : 0)
@@ -436,6 +453,7 @@ public struct TaskRowView: View {
                 Image(systemName: "trash")
                     .foregroundColor(.red.opacity(0.8))
                     .font(.system(size: 13, weight: .bold))
+                    .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
             .opacity(isHovering ? 1 : 0)
