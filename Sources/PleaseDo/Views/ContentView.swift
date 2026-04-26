@@ -185,21 +185,33 @@ public struct ContentView: View {
                                      .padding(.top, 60)
                                      .frame(maxWidth: .infinity, maxHeight: .infinity)
                           } else {
-                            ScrollViewReader { proxy in
-                                List {
-                                     ForEach(viewModel.filteredTasks) { task in
-                                         VStack(spacing: 0) {
-                                             TaskRowView(task: task, viewModel: viewModel)
-                                                       .padding(.horizontal, 8)
-                                         }
-                                         .id(task.id)
-                                         .listRowSeparator(.hidden)
+                             ScrollViewReader { proxy in
+                                 List {
+                                      ForEach(viewModel.filteredTasks) { task in
+                                          TaskRowView(task: task, viewModel: viewModel)
+                                              .padding(.horizontal, 8)
+                                              .id(task.id)
+                                              .listRowSeparator(.hidden)
+                                              .simultaneousGesture(
+                                                  TapGesture(count: 2)
+                                                      .onEnded { _ in
+                                                          viewModel.startEditing(taskId: task.id)
+                                                      }
+                                              )
+                                             .simultaneousGesture(
+                                                 TapGesture(count: 1)
+                                                     .onEnded { _ in
+                                                         if viewModel.editingTaskId != nil && viewModel.editingTaskId != task.id {
+                                                             viewModel.commitCurrentEdit()
+                                                         }
+                                                     }
+                                             )
+                                      }
+                                      .onMove { source, destination in
+                                         viewModel.moveTask(from: source, to: destination)
                                      }
-                                     .onMove { source, destination in
-                                        viewModel.moveTask(from: source, to: destination)
-                                    }
-                                }
-                                .listStyle(.plain)
+                                 }
+                                 .listStyle(.plain)
                                 .onChange(of: viewModel.filteredTasks.count) { _ in
                                    if let topTask = viewModel.filteredTasks.first {
                                       withAnimation(.easeOut(duration: 0.2)) {
@@ -504,12 +516,19 @@ struct AddCategoryView: View {
 
 /**
  * A functional row component rendering a single task instance.
- * Handles user interactions for completion status and item removal.
+ * Handles user interactions for completion status, inline editing, and item removal.
+ * Double-click the row to enter edit mode. Press Enter to save or Escape to cancel.
+ * Clicking outside the row cancels the edit via the ViewModel's editingTaskId.
  */
 public struct TaskRowView: View {
     public let task: TaskItem
     @ObservedObject public var viewModel: TaskListViewModel
     @State private var isHovering = false
+    @FocusState private var isEditFieldFocused: Bool
+    
+    private var isEditing: Bool {
+        viewModel.editingTaskId == task.id
+    }
     
     public var body: some View {
         HStack(spacing: 8) {
@@ -524,54 +543,90 @@ public struct TaskRowView: View {
                     .foregroundColor(task.isCompleted ? .blue : .secondary.opacity(0.5))
             }
             .buttonStyle(.plain)
+            .disabled(isEditing)
 
-            Text(task.title)
-                  .font(.system(size: 14, weight: .regular, design: .default))
-                  .strikethrough(task.isCompleted)
-                  .foregroundColor(task.isCompleted ? .secondary : .primary)
-                  .lineLimit(3)
-                  .help(task.title)
+            if isEditing {
+                TextField(task.title, text: $viewModel.editDraftTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .regular, design: .default))
+                    .foregroundColor(.primary)
+                    .focused($isEditFieldFocused)
+                    .onSubmit {
+                        viewModel.commitCurrentEdit()
+                    }
+                    .onExitCommand {
+                        viewModel.cancelCurrentEdit()
+                    }
+            } else {
+                Text(task.title)
+                      .font(.system(size: 14, weight: .regular, design: .default))
+                      .strikethrough(task.isCompleted)
+                      .foregroundColor(task.isCompleted ? .secondary : .primary)
+                      .lineLimit(3)
+                      .help(task.title)
+            }
             
             Spacer()
             
-            if task.isCompleted {
+            if !isEditing {
+                if task.isCompleted {
+                    Button(action: {
+                        withAnimation {
+                            viewModel.archiveTask(task)
+                        }
+                    }) {
+                        Image(systemName: "archivebox")
+                            .foregroundColor(.blue.opacity(0.7))
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(isHovering ? 1 : 0)
+                    .help("Archive")
+                }
+                
                 Button(action: {
                     withAnimation {
-                        viewModel.archiveTask(task)
+                        viewModel.deleteTask(task)
                     }
                 }) {
-                    Image(systemName: "archivebox")
-                        .foregroundColor(.blue.opacity(0.7))
-                        .font(.system(size: 12, weight: .bold))
+                    Image(systemName: "trash")
+                        .foregroundColor(.red.opacity(0.8))
+                        .font(.system(size: 13, weight: .bold))
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovering ? 1 : 0)
-                .help("Archive")
             }
-            
-            Button(action: {
-                withAnimation {
-                    viewModel.deleteTask(task)
-                }
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red.opacity(0.8))
-                    .font(.system(size: 13, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .opacity(isHovering ? 1 : 0)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isHovering ? Color.secondary.opacity(0.05) : Color.clear)
+                .fill(isEditing ? Color.blue.opacity(0.08) : (isHovering ? Color.secondary.opacity(0.05) : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isEditing ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovering = hovering
             }
         }
+        .onChange(of: isEditing) { editing in
+            if editing {
+                isEditFieldFocused = true
+            }
+        }
+        .onChange(of: isEditFieldFocused) { focused in
+            if !focused && isEditing {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    if viewModel.editingTaskId == task.id {
+                        viewModel.commitCurrentEdit()
+                    }
+                }
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
