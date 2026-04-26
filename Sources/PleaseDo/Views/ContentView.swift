@@ -184,43 +184,29 @@ public struct ContentView: View {
                                      .font(.callout)
                                      .padding(.top, 60)
                                      .frame(maxWidth: .infinity, maxHeight: .infinity)
-                          } else {
-                             ScrollViewReader { proxy in
-                                 List {
-                                      ForEach(viewModel.filteredTasks) { task in
-                                          TaskRowView(task: task, viewModel: viewModel)
-                                              .padding(.horizontal, 8)
-                                              .id(task.id)
-                                              .listRowSeparator(.hidden)
-                                              .simultaneousGesture(
-                                                  TapGesture(count: 2)
-                                                      .onEnded { _ in
-                                                          viewModel.startEditing(taskId: task.id)
-                                                      }
-                                              )
-                                             .simultaneousGesture(
-                                                 TapGesture(count: 1)
-                                                     .onEnded { _ in
-                                                         if viewModel.editingTaskId != nil && viewModel.editingTaskId != task.id {
-                                                             viewModel.commitCurrentEdit()
-                                                         }
-                                                     }
-                                             )
+                           } else {
+                              ScrollViewReader { proxy in
+                                  List {
+                                       ForEach(viewModel.filteredTasks) { task in
+                                           TaskRowView(task: task, viewModel: viewModel)
+                                               .padding(.horizontal, 8)
+                                               .id(task.id)
+                                               .listRowSeparator(.hidden)
+                                       }
+                                       .onMove { source, destination in
+                                          viewModel.moveTask(from: source, to: destination)
                                       }
-                                      .onMove { source, destination in
-                                         viewModel.moveTask(from: source, to: destination)
-                                     }
+                                  }
+                                  .listStyle(.plain)
+                                 .onChange(of: viewModel.filteredTasks.count) { _ in
+                                    if let topTask = viewModel.filteredTasks.first {
+                                       withAnimation(.easeOut(duration: 0.2)) {
+                                          proxy.scrollTo(topTask.id, anchor: .top)
+                                       }
+                                    }
                                  }
-                                 .listStyle(.plain)
-                                .onChange(of: viewModel.filteredTasks.count) { _ in
-                                   if let topTask = viewModel.filteredTasks.first {
-                                      withAnimation(.easeOut(duration: 0.2)) {
-                                         proxy.scrollTo(topTask.id, anchor: .top)
-                                      }
-                                   }
-                                }
-                            }
-                          }
+                             }
+                           }
                     }
                 
                 // Quick Entry Area
@@ -608,6 +594,11 @@ public struct TaskRowView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(isEditing ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
         )
+        .overlay(
+            DoubleClickOverlay(onDoubleClick: {
+                viewModel.startEditing(taskId: task.id)
+            })
+        )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovering = hovering
@@ -620,7 +611,7 @@ public struct TaskRowView: View {
         }
         .onChange(of: isEditFieldFocused) { focused in
             if !focused && isEditing {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     if viewModel.editingTaskId == task.id {
                         viewModel.commitCurrentEdit()
                     }
@@ -628,5 +619,30 @@ public struct TaskRowView: View {
             }
         }
         .contentShape(Rectangle())
+    }
+}
+
+struct DoubleClickOverlay: NSViewRepresentable {
+    let onDoubleClick: () -> Void
+    
+    func makeNSView(context: Context) -> DoubleClickNSView {
+        let view = DoubleClickNSView()
+        view.onDoubleClick = onDoubleClick
+        return view
+    }
+    
+    func updateNSView(_ nsView: DoubleClickNSView, context: Context) {
+        nsView.onDoubleClick = onDoubleClick
+    }
+}
+
+class DoubleClickNSView: NSView {
+    var onDoubleClick: (() -> Void)?
+    
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            onDoubleClick?()
+        }
+        super.mouseDown(with: event)
     }
 }
