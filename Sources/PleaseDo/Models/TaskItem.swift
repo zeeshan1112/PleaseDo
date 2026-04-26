@@ -1,25 +1,10 @@
 import Foundation
 
-/**
- * Represents the top-level container for all application data persisted locally.
- * This acts as the schema wrap for the JSON database, ensuring custom categories,
- * active tasks, and archived tasks stay synchronized across application restarts.
- */
 public struct AppData: Codable {
-    /// An ordered list of user-defined category names (e.g., "Work", "Personal").
     public var categories: [String]
-    /// The array of active (non-archived) user tasks.
     public var tasks: [TaskItem]
-    /// Metadata: Total number of tasks currently in the archive.
     public var archivedCount: Int
     
-    /**
-     * Initializes a new application data construct.
-     * - Parameters:
-     *   - categories: The initial structural categories. Defaults to "Work" and "Personal".
-     *   - tasks: The collection of active tasks.
-     *   - archivedCount: The number of items in the separate archive.
-     */
     public init(categories: [String] = ["Work", "Personal"], tasks: [TaskItem] = [], archivedCount: Int = 0) {
         self.categories = categories
         self.tasks = tasks
@@ -27,37 +12,15 @@ public struct AppData: Codable {
     }
 }
 
-/**
- * A discrete unit of work defined by the user.
- * Contains all metadata required to render, sort, persist, and archive a single task.
- */
 public struct TaskItem: Identifiable, Codable, Hashable {
-    /// A unique identifier generated automatically upon task creation.
     public var id: UUID
-    /// The content of the task displayed in the UI.
     public var title: String
-    /// Tracks if the task has been marked complete by the user.
     public var isCompleted: Bool
-    /// The category name this task resides under.
     public var category: String
-    /// The persistent position of this task within its category for manual reordering.
     public var orderIndex: Int
-    /// The timestamp when this task was created, used for sorting.
     public var createdAt: Date
-    /// The timestamp when this task was last marked completed. Nil if never completed.
     public var completedAt: Date?
     
-    /**
-     * Constructs a new TaskItem.
-     * - Parameters:
-     *   - id: Unique identifier, defaults to a new UUID.
-     *   - title: The primary task text.
-     *   - isCompleted: Initial completion state. Defaults to false.
-     *   - category: The category this task belongs to.
-     *   - orderIndex: Manual sort order. Defaults to 0.
-     *   - createdAt: Creation date. Defaults to current time.
-     *   - completedAt: Completion date. Defaults to nil.
-     */
     public init(id: UUID = UUID(), title: String, isCompleted: Bool = false, category: String, orderIndex: Int = 0, createdAt: Date = Date(), completedAt: Date? = nil) {
         self.id = id
         self.title = title
@@ -67,8 +30,6 @@ public struct TaskItem: Identifiable, Codable, Hashable {
         self.createdAt = createdAt
         self.completedAt = completedAt
     }
-    
-    // MARK: - Decodable
     
     private enum CodingKeys: String, CodingKey {
         case id, title, isCompleted, category, orderIndex, createdAt, completedAt
@@ -80,7 +41,6 @@ public struct TaskItem: Identifiable, Codable, Hashable {
         title = try container.decode(String.self, forKey: .title)
         isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
         category = try container.decode(String.self, forKey: .category)
-        // Default to 0 if orderIndex is missing in existing data
         orderIndex = try container.decodeIfPresent(Int.self, forKey: .orderIndex) ?? 0
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
