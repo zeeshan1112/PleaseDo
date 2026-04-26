@@ -29,12 +29,6 @@ public struct ContentView: View {
     /// Namespace for shared geometry transitions (tab selection).
     @Namespace private var animation
     
-    /// Tracks the task currently being dragged for reordering.
-    @State private var draggedTask: TaskItem? = nil
-    
-    /// Tracks the current drop target for reordering visualization.
-    @State private var dropTargetId: UUID? = nil
-    
     /**
      * Standard initializer for injecting the ViewModel.
      * - Parameter viewModel: The shared task state manager.
@@ -181,55 +175,53 @@ public struct ContentView: View {
                 }
                 .background(Material.ultraThin)
                 
-                // Task List Section
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 4) {
-                            if viewModel.filteredTasks.isEmpty {
-                                Text("No tasks yet. \nReady to conquer your day? 🚀")
-                                    .multilineTextAlignment(.center)
-                                    .foregroundColor(.secondary)
-                                    .font(.callout)
-                                    .padding(.top, 60)
-                            } else {
-                                 ForEach(viewModel.filteredTasks) { task in
-                                     VStack(spacing: 0) {
-                                         if dropTargetId == task.id {
-                                             Divider()
-                                                 .background(Color.blue)
-                                                 .frame(height: 2)
-                                                 .padding(.horizontal, 8)
-                                         }
-                                         TaskRowView(task: task, viewModel: viewModel)
-                                             .id(task.id)
-                                             .opacity(draggedTask == task ? 0 : 1)
-                                             .padding(.horizontal, 8)
-                                             .onDrag {
-                                                 self.draggedTask = task
-                                                 return NSItemProvider(object: task.id.uuidString as NSString)
-                                             }
-                                             .onDrop(of: [.text], delegate: TaskDropDelegate(
-                                                 item: task,
-                                                 viewModel: viewModel,
-                                                 draggedItem: $draggedTask,
-                                                 dropTargetId: $dropTargetId
-                                             ))
+                   // Task List Section
+                   VStack(spacing: 0) {
+                       if viewModel.filteredTasks.isEmpty {
+                            Text("No tasks yet. \nReady to conquer your day? 🚀")
+                                     .multilineTextAlignment(.center)
+                                     .foregroundColor(.secondary)
+                                     .font(.callout)
+                                     .padding(.top, 60)
+                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                          } else {
+                             ScrollViewReader { proxy in
+                                 List {
+                                      ForEach(viewModel.filteredTasks) { task in
+                                          TaskRowView(task: task, viewModel: viewModel)
+                                              .padding(.horizontal, 8)
+                                              .id(task.id)
+                                              .listRowSeparator(.hidden)
+                                              .simultaneousGesture(
+                                                  TapGesture(count: 2)
+                                                      .onEnded { _ in
+                                                          viewModel.startEditing(taskId: task.id)
+                                                      }
+                                              )
+                                             .simultaneousGesture(
+                                                 TapGesture(count: 1)
+                                                     .onEnded { _ in
+                                                         if viewModel.editingTaskId != nil && viewModel.editingTaskId != task.id {
+                                                             viewModel.commitCurrentEdit()
+                                                         }
+                                                     }
+                                             )
+                                      }
+                                      .onMove { source, destination in
+                                         viewModel.moveTask(from: source, to: destination)
                                      }
                                  }
-
+                                 .listStyle(.plain)
+                                .onChange(of: viewModel.filteredTasks.count) { _ in
+                                   if let topTask = viewModel.filteredTasks.first {
+                                      withAnimation(.easeOut(duration: 0.2)) {
+                                         proxy.scrollTo(topTask.id, anchor: .top)
+                                      }
+                                   }
+                                }
                             }
-                        }
-                        .padding(.vertical, 8)
+                          }
                     }
-                    .background(Color.clear)
-                    .onChange(of: viewModel.filteredTasks.count) { _ in
-                        if let topTask = viewModel.filteredTasks.first {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                proxy.scrollTo(topTask.id, anchor: .top)
-                            }
-                        }
-                    }
-                }
                 
                 // Quick Entry Area
                 VStack(spacing: 0) {
@@ -426,13 +418,8 @@ public struct ContentView: View {
             }
         }
         .frame(width: 320, height: 460)
-        .onDrop(of: [.text], isTargeted: nil) { _ in
-            self.draggedTask = nil
-            self.dropTargetId = nil
-            return true
-        }
-    }
-}
+      }
+   }
 
 /**
  * A custom tab button for selecting categories.
@@ -529,115 +516,117 @@ struct AddCategoryView: View {
 
 /**
  * A functional row component rendering a single task instance.
- * Handles user interactions for completion status and item removal.
+ * Handles user interactions for completion status, inline editing, and item removal.
+ * Double-click the row to enter edit mode. Press Enter to save or Escape to cancel.
+ * Clicking outside the row cancels the edit via the ViewModel's editingTaskId.
  */
 public struct TaskRowView: View {
     public let task: TaskItem
     @ObservedObject public var viewModel: TaskListViewModel
     @State private var isHovering = false
+    @FocusState private var isEditFieldFocused: Bool
+    
+    private var isEditing: Bool {
+        viewModel.editingTaskId == task.id
+    }
     
     public var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary.opacity(isHovering ? 0.8 : 0.4))
-                .padding(.horizontal, 4)
-            
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     viewModel.toggleTask(task)
                 }
             }) {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .resizable()
                     .frame(width: 16, height: 16)
                     .foregroundColor(task.isCompleted ? .blue : .secondary.opacity(0.5))
             }
             .buttonStyle(.plain)
-            
-            Text(task.title)
-                .font(.system(size: 14, weight: .regular, design: .default))
-                .strikethrough(task.isCompleted)
-                .foregroundColor(task.isCompleted ? .secondary : .primary)
-                .lineLimit(2)
+            .disabled(isEditing)
+
+            if isEditing {
+                TextField(task.title, text: $viewModel.editDraftTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .regular, design: .default))
+                    .foregroundColor(.primary)
+                    .focused($isEditFieldFocused)
+                    .onSubmit {
+                        viewModel.commitCurrentEdit()
+                    }
+                    .onExitCommand {
+                        viewModel.cancelCurrentEdit()
+                    }
+            } else {
+                Text(task.title)
+                      .font(.system(size: 14, weight: .regular, design: .default))
+                      .strikethrough(task.isCompleted)
+                      .foregroundColor(task.isCompleted ? .secondary : .primary)
+                      .lineLimit(3)
+                      .help(task.title)
+            }
             
             Spacer()
             
-            if task.isCompleted {
+            if !isEditing {
+                if task.isCompleted {
+                    Button(action: {
+                        withAnimation {
+                            viewModel.archiveTask(task)
+                        }
+                    }) {
+                        Image(systemName: "archivebox")
+                            .foregroundColor(.blue.opacity(0.7))
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(isHovering ? 1 : 0)
+                    .help("Archive")
+                }
+                
                 Button(action: {
                     withAnimation {
-                        viewModel.archiveTask(task)
+                        viewModel.deleteTask(task)
                     }
                 }) {
-                    Image(systemName: "archivebox")
-                        .foregroundColor(.blue.opacity(0.7))
-                        .font(.system(size: 12, weight: .bold))
+                    Image(systemName: "trash")
+                        .foregroundColor(.red.opacity(0.8))
+                        .font(.system(size: 13, weight: .bold))
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovering ? 1 : 0)
-                .help("Archive")
             }
-            
-            Button(action: {
-                withAnimation {
-                    viewModel.deleteTask(task)
-                }
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red.opacity(0.8))
-                    .font(.system(size: 13, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .opacity(isHovering ? 1 : 0)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isHovering ? Color.secondary.opacity(0.05) : Color.clear)
+                .fill(isEditing ? Color.blue.opacity(0.08) : (isHovering ? Color.secondary.opacity(0.05) : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isEditing ? Color.blue.opacity(0.4) : Color.clear, lineWidth: 1)
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovering = hovering
             }
         }
-    }
-}
-
-/**
- * Handles the drop logic for task reordering.
- * Re-routes movement commands back to the ViewModel while maintaining UI synchronization.
- */
-struct TaskDropDelegate: DropDelegate {
-    let item: TaskItem
-    let viewModel: TaskListViewModel
-    @Binding var draggedItem: TaskItem?
-    @Binding var dropTargetId: UUID?
-    
-    func dropEntered(info: DropInfo) {
-        self.dropTargetId = item.id
-    }
-    
-    func performDrop(info: DropInfo) -> Bool {
-        defer {
-            self.draggedItem = nil
-            self.dropTargetId = nil
+        .onChange(of: isEditing) { editing in
+            if editing {
+                isEditFieldFocused = true
+            }
         }
-        
-        guard let draggedItem = draggedItem,
-              let from = viewModel.filteredTasks.firstIndex(of: draggedItem),
-              let to = viewModel.filteredTasks.firstIndex(of: item)
-        else { return false }
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            viewModel.moveTask(from: IndexSet(integer: from), to: to > from ? to + 1 : to)
+        .onChange(of: isEditFieldFocused) { focused in
+            if !focused && isEditing {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    if viewModel.editingTaskId == task.id {
+                        viewModel.commitCurrentEdit()
+                    }
+                }
+            }
         }
-        
-        return true
-    }
-    
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .move)
+        .contentShape(Rectangle())
     }
 }

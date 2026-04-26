@@ -21,6 +21,13 @@ public class TaskListViewModel: ObservableObject {
     /// Transient bound text for the new task input field.
     @Published public var newTaskTitle: String = ""
     
+    /// The ID of the task currently being inline-edited. Nil when no task is being edited.
+    @Published public var editingTaskId: UUID? = nil
+    
+    /// Draft text for the task being inline-edited, stored centrally so
+    /// committing an in-progress edit works even when focus shifts to another row.
+    @Published public var editDraftTitle: String = ""
+    
     /// Controls visibility of the archive viewer overlay.
     /// Toggling this to true may trigger a lazy load of the archive data.
     @Published public var showingArchive: Bool = false {
@@ -64,11 +71,16 @@ public class TaskListViewModel: ObservableObject {
     }
     
     /**
-     * Derived list of tasks filtered by selected category and sorted by manual order index.
+     * Derived list of tasks filtered by selected category.
+     * Incomplete tasks appear first sorted by orderIndex, completed tasks trail at the bottom sorted by orderIndex.
      */
     public var filteredTasks: [TaskItem] {
-        tasks.filter { $0.category == selectedCategory }
-            .sorted { $0.orderIndex < $1.orderIndex }
+        let filtered = tasks.filter { $0.category == selectedCategory }
+        let incomplete = filtered.filter { !$0.isCompleted }
+             .sorted { $0.orderIndex < $1.orderIndex }
+        let completed = filtered.filter { $0.isCompleted }
+             .sorted { $0.orderIndex < $1.orderIndex }
+        return incomplete + completed
     }
     
     /**
@@ -292,6 +304,46 @@ public class TaskListViewModel: ObservableObject {
             tasks[index].completedAt = tasks[index].isCompleted ? Date() : nil
             saveActiveData()
         }
+    }
+    
+    /**
+     * Updates the title of an existing task.
+     * - Parameters:
+     *   - task: The task to update (matched by ID).
+     *   - newTitle: The new title text. Must not be empty after trimming.
+     */
+    public func updateTaskTitle(_ task: TaskItem, newTitle: String) {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            tasks[index].title = trimmed
+            saveActiveData()
+        }
+    }
+    
+    public func commitCurrentEdit() {
+        guard let editId = editingTaskId else { return }
+        let trimmed = editDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            if let index = tasks.firstIndex(where: { $0.id == editId }) {
+                if tasks[index].title != trimmed {
+                    tasks[index].title = trimmed
+                    saveActiveData()
+                }
+            }
+        }
+        editingTaskId = nil
+    }
+    
+    public func startEditing(taskId: UUID) {
+        commitCurrentEdit()
+        editDraftTitle = tasks.first(where: { $0.id == taskId })?.title ?? ""
+        editingTaskId = taskId
+    }
+    
+    public func cancelCurrentEdit() {
+        editingTaskId = nil
     }
     
     public func deleteTask(_ task: TaskItem) {
