@@ -24,8 +24,6 @@ public class TaskListViewModel: ObservableObject {
     /// The ID of the task currently being inline-edited. Nil when no task is being edited.
     @Published public var editingTaskId: UUID? = nil
     
-    /// Draft text for the task being inline-edited, stored centrally so
-    /// committing an in-progress edit works even when focus shifts to another row.
     @Published public var editDraftTitle: String = ""
     
     /// Controls visibility of the archive viewer overlay.
@@ -262,20 +260,29 @@ public class TaskListViewModel: ObservableObject {
      *   - destination: The new target offset.
      */
     public func moveTask(from source: IndexSet, to destination: Int) {
-        // 1. Get the tasks associated with the current category in their current sorted order
         var categoryTasks = filteredTasks
-        
-        // 2. Perform the move in the temporary array
         categoryTasks.move(fromOffsets: source, toOffset: destination)
-        
-        // 3. Update the orderIndex for these tasks in a local copy to avoid multiple notifications
         var updatedTasks = tasks
         for (index, task) in categoryTasks.enumerated() {
             if let globalIndex = updatedTasks.firstIndex(where: { $0.id == task.id }) {
                 updatedTasks[globalIndex].orderIndex = index
             }
         }
-        
+        self.tasks = updatedTasks
+        saveActiveData()
+    }
+    
+    public func moveTask(from sourceIndex: Int, to destinationIndex: Int) {
+        var categoryTasks = filteredTasks
+        guard sourceIndex < categoryTasks.count, destinationIndex < categoryTasks.count else { return }
+        let task = categoryTasks.remove(at: sourceIndex)
+        categoryTasks.insert(task, at: destinationIndex)
+        var updatedTasks = tasks
+        for (index, t) in categoryTasks.enumerated() {
+            if let globalIndex = updatedTasks.firstIndex(where: { $0.id == t.id }) {
+                updatedTasks[globalIndex].orderIndex = index
+            }
+        }
         self.tasks = updatedTasks
         saveActiveData()
     }
